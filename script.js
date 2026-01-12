@@ -1457,33 +1457,28 @@ class WhatsAppChatViewer {
     }
 
     buildChatContext() {
-        // For very large chats, we'll sample strategically
+        // Strict sampling to save tokens
         const totalMessages = this.messages.length;
         let contextMessages = [];
 
-        if (totalMessages <= 500) {
-            // Small chat - use all messages
+        if (totalMessages <= 50) {
+            // Very small chat - use all
             contextMessages = this.messages;
         } else {
-            // Large chat - sample strategically
-            // First 50 messages (start of conversation)
-            contextMessages = this.messages.slice(0, 50);
+            // Larger chat - limit to 50 messages total
+            // First 10 messages (for context of how it started)
+            const startMessages = this.messages.slice(0, 10);
 
-            // Random sample from middle
-            const middleStart = Math.floor(totalMessages * 0.3);
-            const middleEnd = Math.floor(totalMessages * 0.7);
-            for (let i = 0; i < 100; i++) {
-                const idx = middleStart + Math.floor(Math.random() * (middleEnd - middleStart));
-                contextMessages.push(this.messages[idx]);
-            }
+            // Last 40 messages (for recent context)
+            const endMessages = this.messages.slice(-40);
 
-            // Last 100 messages (recent conversation)
-            contextMessages = contextMessages.concat(this.messages.slice(-100));
+            contextMessages = [...startMessages, ...endMessages];
         }
 
         // Format messages for context
         let context = `This is a WhatsApp conversation between ${this.participants.join(' and ')}.\n`;
         context += `Total messages: ${totalMessages}\n`;
+        context += `Showing: 10 earliest + 40 most recent messages\n`;
         context += `Date range: ${this.messages[0]?.date || 'Unknown'} to ${this.messages[totalMessages - 1]?.date || 'Unknown'}\n\n`;
         context += `Sample of messages:\n\n`;
 
@@ -1493,7 +1488,7 @@ class WhatsAppChatViewer {
             }
         }
 
-        return context.substring(0, 100000); // Limit to ~100K chars
+        return context.substring(0, 30000); // reduced char limit
     }
 
     async callGeminiAPI(userMessage) {

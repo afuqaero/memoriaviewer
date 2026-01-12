@@ -550,7 +550,7 @@ body {
     animation: messageSlide 0.3s ease-out;
     word-wrap: break-word;
     line-height: 1.35;
-    margin-bottom: 2px;
+    margin-bottom: 12px;
 }
 
 @keyframes messageSlide {
