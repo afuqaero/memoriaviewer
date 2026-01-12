@@ -1114,12 +1114,15 @@ class WhatsAppChatViewer {
 
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
-                const margin = 15;
-                const maxWidth = pageWidth - margin * 2;
+                const margin = 12;
+                const bubbleWidth = (pageWidth - margin * 2) * 0.7; // 70% width bubbles
                 let yPosition = margin;
-                const lineHeight = 5;
-                const senderHeight = 4;
-                const dateHeight = 6;
+                const lineHeight = 4.5;
+                const bubblePadding = 3;
+                const bubbleMargin = 4;
+
+                // Determine the "self" user (current viewer)
+                const selfUser = this.participants[this.currentViewIndex];
 
                 // Sanitize text for PDF (remove non-ASCII)
                 const sanitize = (text) => {
@@ -1133,25 +1136,29 @@ class WhatsAppChatViewer {
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(107, 76, 230);
                 doc.text('WhatsApp Chat Export', pageWidth / 2, yPosition, { align: 'center' });
-                yPosition += 8;
+                yPosition += 7;
 
                 // Subtitle
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(100, 100, 100);
                 doc.text(`${this.messages.length} messages | Exported ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
-                yPosition += 8;
+                yPosition += 6;
 
                 // Line
                 doc.setDrawColor(200, 200, 200);
                 doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                yPosition += 6;
+                yPosition += 5;
 
                 let currentDate = null;
 
                 for (const message of this.messages) {
+                    // Estimate bubble height
+                    const textLines = doc.splitTextToSize(sanitize(message.text), bubbleWidth - bubblePadding * 2);
+                    const bubbleHeight = textLines.length * lineHeight + bubblePadding * 2 + 5; // +5 for sender line
+
                     // Check page overflow
-                    if (yPosition > pageHeight - 25) {
+                    if (yPosition + bubbleHeight > pageHeight - 20) {
                         doc.addPage();
                         yPosition = margin;
                     }
@@ -1159,13 +1166,13 @@ class WhatsAppChatViewer {
                     // Date separator
                     if (message.date !== currentDate) {
                         currentDate = message.date;
-                        yPosition += 2;
+                        yPosition += 3;
                         doc.setFontSize(8);
                         doc.setFont('helvetica', 'bold');
                         doc.setTextColor(139, 92, 246);
                         const formattedDate = this.formatDateForSeparator(message.fullDateTime);
-                        doc.text(`--- ${formattedDate} ---`, pageWidth / 2, yPosition, { align: 'center' });
-                        yPosition += dateHeight;
+                        doc.text(formattedDate, pageWidth / 2, yPosition, { align: 'center' });
+                        yPosition += 5;
                     }
 
                     // System messages
@@ -1173,49 +1180,71 @@ class WhatsAppChatViewer {
                         doc.setFontSize(7);
                         doc.setFont('helvetica', 'italic');
                         doc.setTextColor(150, 150, 150);
-                        const lines = doc.splitTextToSize(sanitize(message.text), maxWidth - 20);
-                        doc.text(lines, pageWidth / 2, yPosition, { align: 'center' });
-                        yPosition += lines.length * 3 + 2;
+                        const sysLines = doc.splitTextToSize(sanitize(message.text), pageWidth - margin * 4);
+                        doc.text(sysLines, pageWidth / 2, yPosition, { align: 'center' });
+                        yPosition += sysLines.length * 3 + 3;
                         continue;
                     }
 
-                    // Sender + Time
-                    doc.setFontSize(8);
+                    // Determine if this is "self" (right-aligned purple) or "other" (left-aligned gray)
+                    const isSelf = message.sender === selfUser;
+                    const bubbleX = isSelf ? pageWidth - margin - bubbleWidth : margin;
+
+                    // Draw bubble background
+                    if (isSelf) {
+                        // Purple bubble for self
+                        doc.setFillColor(138, 92, 246); // Purple
+                        doc.setTextColor(255, 255, 255); // White text
+                    } else {
+                        // Gray bubble for other
+                        doc.setFillColor(55, 55, 70); // Dark gray
+                        doc.setTextColor(255, 255, 255); // White text
+                    }
+
+                    doc.roundedRect(bubbleX, yPosition, bubbleWidth, bubbleHeight, 3, 3, 'F');
+
+                    // Sender name (smaller, inside bubble)
+                    const textX = bubbleX + bubblePadding;
+                    let textY = yPosition + bubblePadding + 3;
+
+                    doc.setFontSize(7);
                     doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(107, 76, 230);
-                    doc.text(sanitize(message.sender), margin, yPosition);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(150, 150, 150);
-                    doc.text(message.time, pageWidth - margin, yPosition, { align: 'right' });
-                    yPosition += senderHeight;
+                    if (isSelf) {
+                        doc.setTextColor(220, 200, 255); // Light purple
+                    } else {
+                        doc.setTextColor(150, 220, 180); // Light green for other
+                    }
+                    doc.text(sanitize(message.sender), textX, textY);
+
+                    // Time (right side of bubble)
+                    doc.setFontSize(6);
+                    doc.setTextColor(200, 200, 200);
+                    doc.text(message.time, bubbleX + bubbleWidth - bubblePadding, textY, { align: 'right' });
+
+                    textY += 4;
 
                     // Message text
                     doc.setFontSize(9);
-                    doc.setTextColor(50, 50, 50);
-                    const textLines = doc.splitTextToSize(sanitize(message.text), maxWidth);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(255, 255, 255); // White
+                    doc.text(textLines, textX, textY);
 
-                    if (yPosition + textLines.length * lineHeight > pageHeight - 15) {
-                        doc.addPage();
-                        yPosition = margin;
-                    }
-
-                    doc.text(textLines, margin, yPosition);
-                    yPosition += textLines.length * lineHeight + 2;
+                    yPosition += bubbleHeight + bubbleMargin;
                 }
 
                 // Checksum
                 if (this.fileChecksum) {
-                    if (yPosition > pageHeight - 30) {
+                    if (yPosition > pageHeight - 25) {
                         doc.addPage();
                         yPosition = margin;
                     }
-                    yPosition += 8;
+                    yPosition += 6;
                     doc.setDrawColor(200, 200, 200);
                     doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                    yPosition += 6;
+                    yPosition += 5;
                     doc.setFontSize(7);
                     doc.setTextColor(100, 100, 100);
-                    doc.text('SHA-256 Checksum: ' + this.fileChecksum, margin, yPosition);
+                    doc.text('SHA-256: ' + this.fileChecksum, margin, yPosition);
                 }
 
                 // Save
