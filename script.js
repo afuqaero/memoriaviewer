@@ -38,6 +38,19 @@ class WhatsAppChatViewer {
         // PDF Download button
         this.downloadPdfBtn = document.getElementById('download-pdf-btn');
 
+        // AI Chat elements
+        this.aiChatBtn = document.getElementById('ai-chat-btn');
+        this.aiChatModal = document.getElementById('ai-chat-modal');
+        this.closeAiModalBtn = document.getElementById('close-ai-modal');
+        this.aiSetup = document.getElementById('ai-setup');
+        this.aiChatInterface = document.getElementById('ai-chat-interface');
+        this.geminiApiKeyInput = document.getElementById('gemini-api-key');
+        this.saveApiKeyBtn = document.getElementById('save-api-key');
+        this.aiMessages = document.getElementById('ai-messages');
+        this.aiUserInput = document.getElementById('ai-user-input');
+        this.aiSendBtn = document.getElementById('ai-send-btn');
+        this.aiChatPartner = document.getElementById('ai-chat-partner');
+
         // State
         this.messages = [];
         this.participants = [];
@@ -50,6 +63,10 @@ class WhatsAppChatViewer {
         this.CHUNK_SIZE = 50; // Number of messages to render at a time
         this.renderedRange = { start: 0, end: 0 };
         this.isLoadingMore = false;
+
+        // AI state
+        this.geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+        this.aiConversationHistory = [];
 
         // Initialize
         this.bindEvents();
@@ -113,6 +130,24 @@ class WhatsAppChatViewer {
         // Starred messages modal close
         this.closeStarredModalBtn.addEventListener('click', () => this.closeStarredMessagesModal());
         this.starredMessagesModal.querySelector('.modal-overlay').addEventListener('click', () => this.closeStarredMessagesModal());
+
+        // AI Chat events
+        this.aiChatBtn.addEventListener('click', () => this.openAiChat());
+        this.closeAiModalBtn.addEventListener('click', () => this.closeAiChat());
+        this.aiChatModal.querySelector('.modal-overlay').addEventListener('click', () => this.closeAiChat());
+        this.saveApiKeyBtn.addEventListener('click', () => this.saveApiKey());
+        this.aiSendBtn.addEventListener('click', () => this.sendAiMessage());
+        this.aiUserInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendAiMessage();
+        });
+
+        // AI suggestion buttons
+        document.querySelectorAll('.suggestion-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.aiUserInput.value = btn.textContent;
+                this.sendAiMessage();
+            });
+        });
     }
 
     scrollToTop() {
@@ -1262,6 +1297,174 @@ class WhatsAppChatViewer {
             this.downloadPdfBtn.innerHTML = originalBtnContent;
             this.downloadPdfBtn.disabled = false;
         }, 100);
+    }
+
+    // ========================================
+    // AI Chat Methods
+    // ========================================
+
+    openAiChat() {
+        this.aiChatModal.classList.remove('hidden');
+
+        // Check if API key exists
+        if (this.geminiApiKey) {
+            this.aiSetup.classList.add('hidden');
+            this.aiChatInterface.classList.remove('hidden');
+            // Update partner name
+            const otherParticipant = this.participants.find(p => p !== this.participants[this.currentViewIndex]) || 'this person';
+            this.aiChatPartner.textContent = otherParticipant;
+        } else {
+            this.aiSetup.classList.remove('hidden');
+            this.aiChatInterface.classList.add('hidden');
+        }
+    }
+
+    closeAiChat() {
+        this.aiChatModal.classList.add('hidden');
+    }
+
+    saveApiKey() {
+        const key = this.geminiApiKeyInput.value.trim();
+        if (key && key.startsWith('AIza')) {
+            this.geminiApiKey = key;
+            localStorage.setItem('gemini_api_key', key);
+            this.aiSetup.classList.add('hidden');
+            this.aiChatInterface.classList.remove('hidden');
+            // Update partner name
+            const otherParticipant = this.participants.find(p => p !== this.participants[this.currentViewIndex]) || 'this person';
+            this.aiChatPartner.textContent = otherParticipant;
+        } else {
+            alert('Please enter a valid Gemini API key (starts with AIza...)');
+        }
+    }
+
+    async sendAiMessage() {
+        const userMessage = this.aiUserInput.value.trim();
+        if (!userMessage) return;
+
+        // Add user message to chat
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'ai-message user-message';
+        userMsgDiv.textContent = userMessage;
+        this.aiMessages.appendChild(userMsgDiv);
+
+        // Clear input
+        this.aiUserInput.value = '';
+
+        // Add loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'ai-message ai-response loading';
+        loadingDiv.innerHTML = '<strong>AI:</strong> <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+        this.aiMessages.appendChild(loadingDiv);
+
+        // Scroll to bottom
+        this.aiMessages.scrollTop = this.aiMessages.scrollHeight;
+
+        try {
+            const response = await this.callGeminiAPI(userMessage);
+
+            // Remove loading indicator
+            loadingDiv.remove();
+
+            // Add AI response
+            const aiMsgDiv = document.createElement('div');
+            aiMsgDiv.className = 'ai-message ai-response';
+            aiMsgDiv.innerHTML = `<strong>AI:</strong> ${response}`;
+            this.aiMessages.appendChild(aiMsgDiv);
+
+        } catch (error) {
+            loadingDiv.remove();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'ai-message ai-response';
+            errorDiv.innerHTML = `<strong>AI:</strong> Sorry, there was an error: ${error.message}`;
+            this.aiMessages.appendChild(errorDiv);
+        }
+
+        // Scroll to bottom
+        this.aiMessages.scrollTop = this.aiMessages.scrollHeight;
+    }
+
+    buildChatContext() {
+        // For very large chats, we'll sample strategically
+        const totalMessages = this.messages.length;
+        let contextMessages = [];
+
+        if (totalMessages <= 500) {
+            // Small chat - use all messages
+            contextMessages = this.messages;
+        } else {
+            // Large chat - sample strategically
+            // First 50 messages (start of conversation)
+            contextMessages = this.messages.slice(0, 50);
+
+            // Random sample from middle
+            const middleStart = Math.floor(totalMessages * 0.3);
+            const middleEnd = Math.floor(totalMessages * 0.7);
+            for (let i = 0; i < 100; i++) {
+                const idx = middleStart + Math.floor(Math.random() * (middleEnd - middleStart));
+                contextMessages.push(this.messages[idx]);
+            }
+
+            // Last 100 messages (recent conversation)
+            contextMessages = contextMessages.concat(this.messages.slice(-100));
+        }
+
+        // Format messages for context
+        let context = `This is a WhatsApp conversation between ${this.participants.join(' and ')}.\n`;
+        context += `Total messages: ${totalMessages}\n`;
+        context += `Date range: ${this.messages[0]?.date || 'Unknown'} to ${this.messages[totalMessages - 1]?.date || 'Unknown'}\n\n`;
+        context += `Sample of messages:\n\n`;
+
+        for (const msg of contextMessages) {
+            if (!msg.isSystem) {
+                context += `[${msg.date} ${msg.time}] ${msg.sender}: ${msg.text}\n`;
+            }
+        }
+
+        return context.substring(0, 100000); // Limit to ~100K chars
+    }
+
+    async callGeminiAPI(userMessage) {
+        const chatContext = this.buildChatContext();
+
+        const systemPrompt = `You are an AI assistant analyzing a WhatsApp conversation. 
+You have access to the chat history and can provide insights about:
+- Relationship dynamics between the participants
+- Communication patterns and styles
+- Key moments or themes in the conversation
+- Personality observations
+- Summaries of the conversation
+
+Be helpful, insightful, and respectful. Don't make harsh judgments.
+Keep responses concise but informative.`;
+
+        const prompt = `${systemPrompt}\n\nCHAT CONTEXT:\n${chatContext}\n\nUSER QUESTION: ${userMessage}`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error?.message || 'API request failed');
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
     }
 }
 

@@ -118,6 +118,17 @@
                                 <line x1="12" y1="15" x2="12" y2="3"></line>
                             </svg>
                         </button>
+                        <button class="header-btn ai-btn" id="ai-chat-btn" title="AI Chat Assistant">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path
+                                    d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z">
+                                </path>
+                                <circle cx="7.5" cy="14.5" r="1.5"></circle>
+                                <circle cx="16.5" cy="14.5" r="1.5"></circle>
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -232,6 +243,61 @@
             <div class="modal-body">
                 <div class="starred-list" id="starred-list">
                     <!-- Starred messages will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Chat Modal -->
+    <div id="ai-chat-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content ai-modal">
+            <div class="modal-header">
+                <h3>🤖 AI Chat Assistant</h3>
+                <button class="modal-close-btn" id="close-ai-modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body ai-body">
+                <!-- API Key Setup -->
+                <div id="ai-setup" class="ai-setup">
+                    <p>Enter your Gemini API key to analyze this conversation:</p>
+                    <div class="api-key-input">
+                        <input type="password" id="gemini-api-key" placeholder="AIza..." />
+                        <button id="save-api-key" class="btn-primary">Save Key</button>
+                    </div>
+                    <p class="api-hint">Get your free key at <a href="https://aistudio.google.com"
+                            target="_blank">Google AI Studio</a></p>
+                </div>
+                <!-- AI Chat Interface -->
+                <div id="ai-chat-interface" class="ai-chat-interface hidden">
+                    <div class="ai-messages" id="ai-messages">
+                        <div class="ai-message ai-response">
+                            <strong>AI:</strong> I've analyzed your conversation with <span id="ai-chat-partner">this
+                                person</span>.
+                            Ask me anything about your chat - relationship dynamics, communication patterns, or
+                            summaries!
+                        </div>
+                    </div>
+                    <div class="ai-input-area">
+                        <input type="text" id="ai-user-input" placeholder="Ask about your conversation..." />
+                        <button id="ai-send-btn" class="btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="ai-suggestions">
+                        <button class="suggestion-btn">Summarize this chat</button>
+                        <button class="suggestion-btn">What's our communication style?</button>
+                        <button class="suggestion-btn">Key moments in this chat</button>
+                    </div>
                 </div>
             </div>
         </div>
