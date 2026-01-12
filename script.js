@@ -1097,138 +1097,115 @@ class WhatsAppChatViewer {
     }
 
     downloadAsPDF() {
-        // Access jsPDF from the global namespace
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
+        // Show loading indicator
+        const originalBtnContent = this.downloadPdfBtn.innerHTML;
+        this.downloadPdfBtn.innerHTML = `<svg class="spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
+        this.downloadPdfBtn.disabled = true;
 
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 15;
-        const maxWidth = pageWidth - margin * 2;
-        let yPosition = margin;
-        const lineHeight = 6;
-        const senderHeight = 5;
-        const dateHeight = 8;
+        // Create a container for the PDF content
+        const container = document.createElement('div');
+        container.style.cssText = `
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 210mm;
+            padding: 15mm;
+            background: white;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+        `;
 
-        // Helper function to sanitize text for PDF
-        // Replaces non-ASCII characters with readable alternatives
-        const sanitizeForPDF = (text) => {
-            return text
-                .replace(/[\u200e\u200f]/g, '') // Remove LTR/RTL marks
-                .replace(/[^\x00-\x7F]/g, '?'); // Replace non-ASCII with ?
-        };
-
-        // Title
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(107, 76, 230);
-        doc.text('WhatsApp Chat Export', pageWidth / 2, yPosition, { align: 'center' });
-        yPosition += 10;
-
-        // Subtitle with chat info
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        const chatInfo = `${this.messages.length} messages | Exported on ${new Date().toLocaleDateString()}`;
-        doc.text(chatInfo, pageWidth / 2, yPosition, { align: 'center' });
-        yPosition += 10;
-
-        // Divider line
-        doc.setDrawColor(200, 200, 200);
-        doc.line(margin, yPosition, pageWidth - margin, yPosition);
-        yPosition += 8;
+        // Build HTML content
+        let html = `
+            <div style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #8b5cf6;">
+                <h1 style="color: #6b4ce6; font-size: 20px; margin: 0 0 5px 0;">WhatsApp Chat Export</h1>
+                <div style="color: #666; font-size: 11px;">${this.messages.length} messages | Exported on ${new Date().toLocaleDateString()}</div>
+            </div>
+        `;
 
         let currentDate = null;
 
-        // Process all messages
         for (const message of this.messages) {
-            // Check if we need a new page
-            if (yPosition > pageHeight - 30) {
-                doc.addPage();
-                yPosition = margin;
-            }
-
             // Date separator
             if (message.date !== currentDate) {
                 currentDate = message.date;
-                yPosition += 3;
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(139, 92, 246);
                 const formattedDate = this.formatDateForSeparator(message.fullDateTime);
-                doc.text(`--- ${formattedDate} ---`, pageWidth / 2, yPosition, { align: 'center' });
-                yPosition += dateHeight;
+                html += `<div style="text-align: center; margin: 15px 0 10px; color: #8b5cf6; font-weight: 600; font-size: 11px;">--- ${formattedDate} ---</div>`;
             }
 
-            // System messages
             if (message.isSystem) {
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'italic');
-                doc.setTextColor(150, 150, 150);
-                const systemLines = doc.splitTextToSize(sanitizeForPDF(message.text), maxWidth - 20);
-                doc.text(systemLines, pageWidth / 2, yPosition, { align: 'center' });
-                yPosition += systemLines.length * 4 + 3;
-                continue;
+                html += `<div style="text-align: center; color: #999; font-style: italic; font-size: 10px; margin: 8px 0;">${this.escapeHtml(message.text)}</div>`;
+            } else {
+                html += `
+                    <div style="margin-bottom: 10px; page-break-inside: avoid;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                            <span style="color: #6b4ce6; font-weight: 600; font-size: 11px;">${this.escapeHtml(message.sender)}</span>
+                            <span style="color: #999; font-size: 10px;">${message.time}</span>
+                        </div>
+                        <div style="color: #333; font-size: 12px;">${this.escapeHtml(message.text)}</div>
+                    </div>
+                `;
             }
-
-            // Sender name
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(107, 76, 230);
-            doc.text(sanitizeForPDF(message.sender), margin, yPosition);
-
-            // Time on the right
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(150, 150, 150);
-            doc.text(message.time, pageWidth - margin, yPosition, { align: 'right' });
-            yPosition += senderHeight;
-
-            // Message text
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(50, 50, 50);
-            const textLines = doc.splitTextToSize(sanitizeForPDF(message.text), maxWidth);
-
-            // Check if text will overflow page
-            if (yPosition + textLines.length * lineHeight > pageHeight - 20) {
-                doc.addPage();
-                yPosition = margin;
-            }
-
-            doc.text(textLines, margin, yPosition);
-            yPosition += textLines.length * lineHeight + 3;
         }
 
-        // Add checksum at the end
+        // Add checksum
         if (this.fileChecksum) {
-            if (yPosition > pageHeight - 40) {
-                doc.addPage();
-                yPosition = margin;
-            }
-            yPosition += 10;
-            doc.setDrawColor(200, 200, 200);
-            doc.line(margin, yPosition, pageWidth - margin, yPosition);
-            yPosition += 8;
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(100, 100, 100);
-            doc.text('Data Integrity Checksum (SHA-256):', margin, yPosition);
-            yPosition += 5;
-            doc.setFontSize(7);
-            doc.setFont('courier', 'normal');
-            doc.text(this.fileChecksum, margin, yPosition);
+            html += `
+                <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 9px; color: #666;">
+                    <div>Data Integrity Checksum (SHA-256):</div>
+                    <div style="font-family: monospace; font-size: 8px; word-break: break-all; color: #888;">${this.fileChecksum}</div>
+                </div>
+            `;
         }
 
-        // Generate filename and save immediately
+        container.innerHTML = html;
+        document.body.appendChild(container);
+
+        // Generate filename
         const chatName = this.chatName.textContent || 'WhatsApp_Chat';
         const dateStr = new Date().toISOString().split('T')[0];
         const filename = `${chatName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
 
-        doc.save(filename);
+        // PDF options
+        const opt = {
+            margin: 0,
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                letterRendering: true
+            },
+            jsPDF: {
+                unit: 'mm',
+                format: 'a4',
+                orientation: 'portrait'
+            },
+            pagebreak: { mode: 'avoid-all' }
+        };
+
+        // Generate and download PDF
+        html2pdf().set(opt).from(container).save().then(() => {
+            // Cleanup
+            document.body.removeChild(container);
+            this.downloadPdfBtn.innerHTML = originalBtnContent;
+            this.downloadPdfBtn.disabled = false;
+        }).catch(err => {
+            console.error('PDF generation failed:', err);
+            document.body.removeChild(container);
+            this.downloadPdfBtn.innerHTML = originalBtnContent;
+            this.downloadPdfBtn.disabled = false;
+            alert('PDF generation failed. Please try again.');
+        });
+    }
+
+    // Helper to escape HTML special characters
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML.replace(/\n/g, '<br>');
     }
 }
 
