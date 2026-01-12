@@ -1097,189 +1097,138 @@ class WhatsAppChatViewer {
     }
 
     downloadAsPDF() {
-        // Create a new window for printing (supports ALL Unicode characters)
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        // Access jsPDF from the global namespace
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
 
-        if (!printWindow) {
-            alert('Please allow pop-ups to download PDF');
-            return;
-        }
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        const maxWidth = pageWidth - margin * 2;
+        let yPosition = margin;
+        const lineHeight = 6;
+        const senderHeight = 5;
+        const dateHeight = 8;
 
-        // Build the HTML content for the PDF
-        let htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>WhatsApp Chat Export</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            padding: 20px 40px;
-            background: white;
-            color: #333;
-            line-height: 1.5;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #8b5cf6;
-        }
-        
-        .header h1 {
-            color: #6b4ce6;
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-        
-        .header .info {
-            color: #666;
-            font-size: 12px;
-        }
-        
-        .date-separator {
-            text-align: center;
-            margin: 20px 0 15px;
-            color: #8b5cf6;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        
-        .message {
-            margin-bottom: 12px;
-            page-break-inside: avoid;
-        }
-        
-        .message-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-        
-        .sender {
-            color: #6b4ce6;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        
-        .time {
-            color: #999;
-            font-size: 11px;
-        }
-        
-        .text {
-            color: #333;
-            font-size: 14px;
-            padding-left: 0;
-            word-wrap: break-word;
-        }
-        
-        .system-message {
-            text-align: center;
-            color: #999;
-            font-style: italic;
-            font-size: 12px;
-            margin: 10px 0;
-        }
-        
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            font-size: 10px;
-            color: #666;
-        }
-        
-        .checksum {
-            font-family: 'Courier New', monospace;
-            font-size: 9px;
-            word-break: break-all;
-            color: #888;
-        }
-        
-        @media print {
-            body {
-                padding: 15px 30px;
-            }
-            .message {
-                page-break-inside: avoid;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>WhatsApp Chat Export</h1>
-        <div class="info">${this.messages.length} messages | Exported on ${new Date().toLocaleDateString()}</div>
-    </div>
-`;
+        // Helper function to sanitize text for PDF
+        // Replaces non-ASCII characters with readable alternatives
+        const sanitizeForPDF = (text) => {
+            return text
+                .replace(/[\u200e\u200f]/g, '') // Remove LTR/RTL marks
+                .replace(/[^\x00-\x7F]/g, '?'); // Replace non-ASCII with ?
+        };
+
+        // Title
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(107, 76, 230);
+        doc.text('WhatsApp Chat Export', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+
+        // Subtitle with chat info
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        const chatInfo = `${this.messages.length} messages | Exported on ${new Date().toLocaleDateString()}`;
+        doc.text(chatInfo, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+
+        // Divider line
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 8;
 
         let currentDate = null;
 
-        // Add all messages
+        // Process all messages
         for (const message of this.messages) {
+            // Check if we need a new page
+            if (yPosition > pageHeight - 30) {
+                doc.addPage();
+                yPosition = margin;
+            }
+
             // Date separator
             if (message.date !== currentDate) {
                 currentDate = message.date;
+                yPosition += 3;
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(139, 92, 246);
                 const formattedDate = this.formatDateForSeparator(message.fullDateTime);
-                htmlContent += `<div class="date-separator">--- ${formattedDate} ---</div>`;
+                doc.text(`--- ${formattedDate} ---`, pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += dateHeight;
             }
 
+            // System messages
             if (message.isSystem) {
-                htmlContent += `<div class="system-message">${this.escapeHtml(message.text)}</div>`;
-            } else {
-                htmlContent += `
-    <div class="message">
-        <div class="message-header">
-            <span class="sender">${this.escapeHtml(message.sender)}</span>
-            <span class="time">${message.time}</span>
-        </div>
-        <div class="text">${this.escapeHtml(message.text)}</div>
-    </div>`;
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(150, 150, 150);
+                const systemLines = doc.splitTextToSize(sanitizeForPDF(message.text), maxWidth - 20);
+                doc.text(systemLines, pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += systemLines.length * 4 + 3;
+                continue;
             }
+
+            // Sender name
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(107, 76, 230);
+            doc.text(sanitizeForPDF(message.sender), margin, yPosition);
+
+            // Time on the right
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(150, 150, 150);
+            doc.text(message.time, pageWidth - margin, yPosition, { align: 'right' });
+            yPosition += senderHeight;
+
+            // Message text
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(50, 50, 50);
+            const textLines = doc.splitTextToSize(sanitizeForPDF(message.text), maxWidth);
+
+            // Check if text will overflow page
+            if (yPosition + textLines.length * lineHeight > pageHeight - 20) {
+                doc.addPage();
+                yPosition = margin;
+            }
+
+            doc.text(textLines, margin, yPosition);
+            yPosition += textLines.length * lineHeight + 3;
         }
 
-        // Add footer with checksum
+        // Add checksum at the end
         if (this.fileChecksum) {
-            htmlContent += `
-    <div class="footer">
-        <div>Data Integrity Checksum (SHA-256):</div>
-        <div class="checksum">${this.fileChecksum}</div>
-    </div>`;
+            if (yPosition > pageHeight - 40) {
+                doc.addPage();
+                yPosition = margin;
+            }
+            yPosition += 10;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, yPosition, pageWidth - margin, yPosition);
+            yPosition += 8;
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text('Data Integrity Checksum (SHA-256):', margin, yPosition);
+            yPosition += 5;
+            doc.setFontSize(7);
+            doc.setFont('courier', 'normal');
+            doc.text(this.fileChecksum, margin, yPosition);
         }
 
-        htmlContent += `
-</body>
-</html>`;
+        // Generate filename and save immediately
+        const chatName = this.chatName.textContent || 'WhatsApp_Chat';
+        const dateStr = new Date().toISOString().split('T')[0];
+        const filename = `${chatName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
 
-        // Write to the new window and print
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-
-        // Wait for fonts to load, then print
-        printWindow.onload = () => {
-            setTimeout(() => {
-                printWindow.print();
-            }, 500);
-        };
-    }
-
-    // Helper to escape HTML special characters
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/\n/g, '<br>');
+        doc.save(filename);
     }
 }
 
