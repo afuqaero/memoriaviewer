@@ -1102,110 +1102,137 @@ class WhatsAppChatViewer {
         this.downloadPdfBtn.innerHTML = `<svg class="spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
         this.downloadPdfBtn.disabled = true;
 
-        // Create a container for the PDF content
-        const container = document.createElement('div');
-        container.style.cssText = `
-            position: absolute;
-            left: -9999px;
-            top: 0;
-            width: 210mm;
-            padding: 15mm;
-            background: white;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 12px;
-            line-height: 1.5;
-            color: #333;
-        `;
+        // Use setTimeout to allow UI to update before heavy processing
+        setTimeout(() => {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
 
-        // Build HTML content
-        let html = `
-            <div style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #8b5cf6;">
-                <h1 style="color: #6b4ce6; font-size: 20px; margin: 0 0 5px 0;">WhatsApp Chat Export</h1>
-                <div style="color: #666; font-size: 11px;">${this.messages.length} messages | Exported on ${new Date().toLocaleDateString()}</div>
-            </div>
-        `;
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const margin = 15;
+                const maxWidth = pageWidth - margin * 2;
+                let yPosition = margin;
+                const lineHeight = 5;
+                const senderHeight = 4;
+                const dateHeight = 6;
 
-        let currentDate = null;
+                // Sanitize text for PDF (remove non-ASCII)
+                const sanitize = (text) => {
+                    return text
+                        .replace(/[\u200e\u200f]/g, '')
+                        .replace(/[^\x00-\x7F]/g, '?');
+                };
 
-        for (const message of this.messages) {
-            // Date separator
-            if (message.date !== currentDate) {
-                currentDate = message.date;
-                const formattedDate = this.formatDateForSeparator(message.fullDateTime);
-                html += `<div style="text-align: center; margin: 15px 0 10px; color: #8b5cf6; font-weight: 600; font-size: 11px;">--- ${formattedDate} ---</div>`;
+                // Title
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(107, 76, 230);
+                doc.text('WhatsApp Chat Export', pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += 8;
+
+                // Subtitle
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(100, 100, 100);
+                doc.text(`${this.messages.length} messages | Exported ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += 8;
+
+                // Line
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                yPosition += 6;
+
+                let currentDate = null;
+
+                for (const message of this.messages) {
+                    // Check page overflow
+                    if (yPosition > pageHeight - 25) {
+                        doc.addPage();
+                        yPosition = margin;
+                    }
+
+                    // Date separator
+                    if (message.date !== currentDate) {
+                        currentDate = message.date;
+                        yPosition += 2;
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(139, 92, 246);
+                        const formattedDate = this.formatDateForSeparator(message.fullDateTime);
+                        doc.text(`--- ${formattedDate} ---`, pageWidth / 2, yPosition, { align: 'center' });
+                        yPosition += dateHeight;
+                    }
+
+                    // System messages
+                    if (message.isSystem) {
+                        doc.setFontSize(7);
+                        doc.setFont('helvetica', 'italic');
+                        doc.setTextColor(150, 150, 150);
+                        const lines = doc.splitTextToSize(sanitize(message.text), maxWidth - 20);
+                        doc.text(lines, pageWidth / 2, yPosition, { align: 'center' });
+                        yPosition += lines.length * 3 + 2;
+                        continue;
+                    }
+
+                    // Sender + Time
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(107, 76, 230);
+                    doc.text(sanitize(message.sender), margin, yPosition);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(message.time, pageWidth - margin, yPosition, { align: 'right' });
+                    yPosition += senderHeight;
+
+                    // Message text
+                    doc.setFontSize(9);
+                    doc.setTextColor(50, 50, 50);
+                    const textLines = doc.splitTextToSize(sanitize(message.text), maxWidth);
+
+                    if (yPosition + textLines.length * lineHeight > pageHeight - 15) {
+                        doc.addPage();
+                        yPosition = margin;
+                    }
+
+                    doc.text(textLines, margin, yPosition);
+                    yPosition += textLines.length * lineHeight + 2;
+                }
+
+                // Checksum
+                if (this.fileChecksum) {
+                    if (yPosition > pageHeight - 30) {
+                        doc.addPage();
+                        yPosition = margin;
+                    }
+                    yPosition += 8;
+                    doc.setDrawColor(200, 200, 200);
+                    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                    yPosition += 6;
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 100, 100);
+                    doc.text('SHA-256 Checksum: ' + this.fileChecksum, margin, yPosition);
+                }
+
+                // Save
+                const chatName = this.chatName.textContent || 'WhatsApp_Chat';
+                const dateStr = new Date().toISOString().split('T')[0];
+                const filename = `${chatName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
+                doc.save(filename);
+
+            } catch (err) {
+                console.error('PDF generation failed:', err);
+                alert('PDF generation failed. Try exporting as text instead.');
             }
 
-            if (message.isSystem) {
-                html += `<div style="text-align: center; color: #999; font-style: italic; font-size: 10px; margin: 8px 0;">${this.escapeHtml(message.text)}</div>`;
-            } else {
-                html += `
-                    <div style="margin-bottom: 10px; page-break-inside: avoid;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                            <span style="color: #6b4ce6; font-weight: 600; font-size: 11px;">${this.escapeHtml(message.sender)}</span>
-                            <span style="color: #999; font-size: 10px;">${message.time}</span>
-                        </div>
-                        <div style="color: #333; font-size: 12px;">${this.escapeHtml(message.text)}</div>
-                    </div>
-                `;
-            }
-        }
-
-        // Add checksum
-        if (this.fileChecksum) {
-            html += `
-                <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 9px; color: #666;">
-                    <div>Data Integrity Checksum (SHA-256):</div>
-                    <div style="font-family: monospace; font-size: 8px; word-break: break-all; color: #888;">${this.fileChecksum}</div>
-                </div>
-            `;
-        }
-
-        container.innerHTML = html;
-        document.body.appendChild(container);
-
-        // Generate filename
-        const chatName = this.chatName.textContent || 'WhatsApp_Chat';
-        const dateStr = new Date().toISOString().split('T')[0];
-        const filename = `${chatName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
-
-        // PDF options
-        const opt = {
-            margin: 0,
-            filename: filename,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                letterRendering: true
-            },
-            jsPDF: {
-                unit: 'mm',
-                format: 'a4',
-                orientation: 'portrait'
-            },
-            pagebreak: { mode: 'avoid-all' }
-        };
-
-        // Generate and download PDF
-        html2pdf().set(opt).from(container).save().then(() => {
-            // Cleanup
-            document.body.removeChild(container);
+            // Reset button
             this.downloadPdfBtn.innerHTML = originalBtnContent;
             this.downloadPdfBtn.disabled = false;
-        }).catch(err => {
-            console.error('PDF generation failed:', err);
-            document.body.removeChild(container);
-            this.downloadPdfBtn.innerHTML = originalBtnContent;
-            this.downloadPdfBtn.disabled = false;
-            alert('PDF generation failed. Please try again.');
-        });
-    }
-
-    // Helper to escape HTML special characters
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/\n/g, '<br>');
+        }, 100);
     }
 }
 
