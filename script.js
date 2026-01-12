@@ -35,6 +35,9 @@ class WhatsAppChatViewer {
         this.floatingDateBubble = document.getElementById('floating-date-bubble');
         this.scrollTimeout = null;
 
+        // PDF Download button
+        this.downloadPdfBtn = document.getElementById('download-pdf-btn');
+
         // State
         this.messages = [];
         this.participants = [];
@@ -83,6 +86,9 @@ class WhatsAppChatViewer {
 
         // Switch view button
         this.switchViewBtn.addEventListener('click', () => this.switchView());
+
+        // Download PDF button
+        this.downloadPdfBtn.addEventListener('click', () => this.downloadAsPDF());
 
         // Scroll buttons
         this.scrollTopBtn.addEventListener('click', () => this.scrollToTop());
@@ -157,12 +163,32 @@ class WhatsAppChatViewer {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const content = e.target.result;
+
+            // Calculate Checksum for Data Integrity
+            try {
+                this.fileChecksum = await this.calculateChecksum(content);
+            } catch (err) {
+                console.error("Checksum failed", err);
+                this.fileChecksum = "Error calculating checksum";
+            }
+
             this.parseChat(content);
             this.showChatScreen();
         };
         reader.readAsText(file);
+    }
+
+    async calculateChecksum(text) {
+        // Encode text to buffer
+        const msgBuffer = new TextEncoder().encode(text);
+        // Hash the buffer (SHA-256)
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        // Convert to Hex string
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
     }
 
     parseChat(content) {
@@ -372,6 +398,12 @@ class WhatsAppChatViewer {
         }
 
         this.messageCount.textContent = `${this.messages.length} messages`;
+
+        // Add checksum info to tooltip
+        if (this.fileChecksum) {
+            this.messageCount.title = `File Checksum (SHA-256):\n${this.fileChecksum}`;
+            this.messageCount.style.cursor = 'help';
+        }
 
         this.renderMessages();
     }
@@ -1062,6 +1094,192 @@ class WhatsAppChatViewer {
             hash = hash & hash;
         }
         return Math.abs(hash).toString(36);
+    }
+
+    downloadAsPDF() {
+        // Create a new window for printing (supports ALL Unicode characters)
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+
+        if (!printWindow) {
+            alert('Please allow pop-ups to download PDF');
+            return;
+        }
+
+        // Build the HTML content for the PDF
+        let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WhatsApp Chat Export</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px 40px;
+            background: white;
+            color: #333;
+            line-height: 1.5;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #8b5cf6;
+        }
+        
+        .header h1 {
+            color: #6b4ce6;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .header .info {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .date-separator {
+            text-align: center;
+            margin: 20px 0 15px;
+            color: #8b5cf6;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            page-break-inside: avoid;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        
+        .sender {
+            color: #6b4ce6;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .time {
+            color: #999;
+            font-size: 11px;
+        }
+        
+        .text {
+            color: #333;
+            font-size: 14px;
+            padding-left: 0;
+            word-wrap: break-word;
+        }
+        
+        .system-message {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 10px;
+            color: #666;
+        }
+        
+        .checksum {
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            word-break: break-all;
+            color: #888;
+        }
+        
+        @media print {
+            body {
+                padding: 15px 30px;
+            }
+            .message {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>WhatsApp Chat Export</h1>
+        <div class="info">${this.messages.length} messages | Exported on ${new Date().toLocaleDateString()}</div>
+    </div>
+`;
+
+        let currentDate = null;
+
+        // Add all messages
+        for (const message of this.messages) {
+            // Date separator
+            if (message.date !== currentDate) {
+                currentDate = message.date;
+                const formattedDate = this.formatDateForSeparator(message.fullDateTime);
+                htmlContent += `<div class="date-separator">--- ${formattedDate} ---</div>`;
+            }
+
+            if (message.isSystem) {
+                htmlContent += `<div class="system-message">${this.escapeHtml(message.text)}</div>`;
+            } else {
+                htmlContent += `
+    <div class="message">
+        <div class="message-header">
+            <span class="sender">${this.escapeHtml(message.sender)}</span>
+            <span class="time">${message.time}</span>
+        </div>
+        <div class="text">${this.escapeHtml(message.text)}</div>
+    </div>`;
+            }
+        }
+
+        // Add footer with checksum
+        if (this.fileChecksum) {
+            htmlContent += `
+    <div class="footer">
+        <div>Data Integrity Checksum (SHA-256):</div>
+        <div class="checksum">${this.fileChecksum}</div>
+    </div>`;
+        }
+
+        htmlContent += `
+</body>
+</html>`;
+
+        // Write to the new window and print
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+
+        // Wait for fonts to load, then print
+        printWindow.onload = () => {
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+        };
+    }
+
+    // Helper to escape HTML special characters
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML.replace(/\n/g, '<br>');
     }
 }
 
