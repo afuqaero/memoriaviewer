@@ -1083,3 +1083,45 @@ body {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
 }
+
+/* ========================================
+   Mobile Responsiveness
+======================================== */
+@media (max-width: 600px) {
+    .upload-screen {
+        padding: 16px;
+    }
+
+    .upload-card {
+        padding: 24px 16px;
+    }
+
+    .upload-icon {
+        width: 72px;
+        height: 72px;
+        margin-bottom: 20px;
+    }
+
+    .upload-card h1 {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+    }
+
+    .upload-description {
+        font-size: 0.95rem;
+        margin-bottom: 24px;
+    }
+
+    .upload-area {
+        padding: 20px 16px;
+        margin-bottom: 24px;
+    }
+
+    .how-to-export {
+        padding: 16px;
+    }
+
+    .how-to-export ol {
+        margin-left: 16px;
+    }
+}
