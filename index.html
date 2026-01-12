@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- jsPDF for fast PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- JSZip for extracting ZIP files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 
 <body>
@@ -29,11 +31,12 @@
                 </div>
                 <h1>WhatsApp Chat Viewer</h1>
                 <p class="creator-credit">by <span>feeqazmir</span></p>
-                <p class="upload-description">Upload your WhatsApp chat export (.txt file) to view it in a beautiful
+                <p class="upload-description">Upload your WhatsApp chat export (.txt or .zip file) to view it in a
+                    beautiful
                     WhatsApp-like interface</p>
 
                 <div class="upload-area" id="upload-area">
-                    <input type="file" id="file-input" accept=".txt" hidden>
+                    <input type="file" id="file-input" accept=".txt, .zip" hidden>
                     <div class="upload-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -275,6 +278,10 @@
                 </div>
                 <!-- AI Chat Interface -->
                 <div id="ai-chat-interface" class="ai-chat-interface hidden">
+                    <div class="ai-header-actions">
+                        <button id="change-api-key-btn" class="btn-secondary" title="Change API Key">🔑 Change API
+                            Key</button>
+                    </div>
                     <div class="ai-messages" id="ai-messages">
                         <div class="ai-message ai-response">
                             <strong>AI:</strong> I've analyzed your conversation with <span id="ai-chat-partner">this

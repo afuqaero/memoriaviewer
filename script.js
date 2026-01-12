@@ -50,6 +50,7 @@ class WhatsAppChatViewer {
         this.aiUserInput = document.getElementById('ai-user-input');
         this.aiSendBtn = document.getElementById('ai-send-btn');
         this.aiChatPartner = document.getElementById('ai-chat-partner');
+        this.changeApiKeyBtn = document.getElementById('change-api-key-btn');
 
         // State
         this.messages = [];
@@ -137,6 +138,7 @@ class WhatsAppChatViewer {
         this.aiChatModal.querySelector('.modal-overlay').addEventListener('click', () => this.closeAiChat());
         this.saveApiKeyBtn.addEventListener('click', () => this.saveApiKey());
         this.aiSendBtn.addEventListener('click', () => this.sendAiMessage());
+        this.changeApiKeyBtn.addEventListener('click', () => this.resetApiKey());
         this.aiUserInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.sendAiMessage();
         });
@@ -192,27 +194,61 @@ class WhatsAppChatViewer {
     }
 
     processFile(file) {
-        if (!file.name.endsWith('.txt')) {
-            alert('Please upload a .txt file');
-            return;
+        const fileName = file.name.toLowerCase();
+        if (fileName.endsWith('.zip')) {
+            this.processZipFile(file);
+        } else if (fileName.endsWith('.txt')) {
+            this.processTextFile(file);
+        } else {
+            alert('Please upload a .txt file or a .zip file containing the chat.');
         }
+    }
 
+    processTextFile(file) {
         const reader = new FileReader();
-        reader.onload = async (e) => {
-            const content = e.target.result;
-
-            // Calculate Checksum for Data Integrity
-            try {
-                this.fileChecksum = await this.calculateChecksum(content);
-            } catch (err) {
-                console.error("Checksum failed", err);
-                this.fileChecksum = "Error calculating checksum";
-            }
-
-            this.parseChat(content);
-            this.showChatScreen();
+        reader.onload = (e) => {
+            this.processContent(e.target.result);
         };
         reader.readAsText(file);
+    }
+
+    processZipFile(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const zip = new JSZip();
+                const zipContent = await zip.loadAsync(e.target.result);
+
+                // Find the first txt file that is not a system file
+                const txtFileName = Object.keys(zipContent.files).find(name =>
+                    name.toLowerCase().endsWith('.txt') && !name.startsWith('__MACOSX') && !name.startsWith('.')
+                );
+
+                if (txtFileName) {
+                    const content = await zipContent.file(txtFileName).async('string');
+                    this.processContent(content);
+                } else {
+                    alert('No .txt file found in the zip archive.');
+                }
+            } catch (err) {
+                console.error('Error reading zip file:', err);
+                alert('Failed to read the .zip file. Please valid zip file.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    async processContent(content) {
+        // Calculate Checksum for Data Integrity
+        try {
+            this.fileChecksum = await this.calculateChecksum(content);
+        } catch (err) {
+            console.error("Checksum failed", err);
+            this.fileChecksum = "Error calculating checksum";
+        }
+
+        this.parseChat(content);
+        this.showChatScreen();
     }
 
     async calculateChecksum(text) {
@@ -1338,6 +1374,26 @@ class WhatsAppChatViewer {
         }
     }
 
+    resetApiKey() {
+        // Clear stored key
+        localStorage.removeItem('gemini_api_key');
+        this.geminiApiKey = '';
+        this.geminiApiKeyInput.value = '';
+
+        // Show setup screen
+        this.aiSetup.classList.remove('hidden');
+        this.aiChatInterface.classList.add('hidden');
+
+        // Clear chat history
+        this.aiMessages.innerHTML = `
+            <div class="ai-message ai-response">
+                <strong>AI:</strong> I've analyzed your conversation with <span id="ai-chat-partner">this person</span>. 
+                Ask me anything about your chat - relationship dynamics, communication patterns, or summaries!
+            </div>
+        `;
+        this.aiChatPartner = document.getElementById('ai-chat-partner');
+    }
+
     async sendAiMessage() {
         const userMessage = this.aiUserInput.value.trim();
         if (!userMessage) return;
@@ -1354,7 +1410,7 @@ class WhatsAppChatViewer {
         // Add loading indicator
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'ai-message ai-response loading';
-        loadingDiv.innerHTML = '<strong>AI:</strong> <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+        loadingDiv.innerHTML = '<strong>AI:</strong> <span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
         this.aiMessages.appendChild(loadingDiv);
 
         // Scroll to bottom
@@ -1366,10 +1422,10 @@ class WhatsAppChatViewer {
             // Remove loading indicator
             loadingDiv.remove();
 
-            // Add AI response
+            // Add AI response with formatted markdown
             const aiMsgDiv = document.createElement('div');
             aiMsgDiv.className = 'ai-message ai-response';
-            aiMsgDiv.innerHTML = `<strong>AI:</strong> ${response}`;
+            aiMsgDiv.innerHTML = `<strong>AI:</strong> ${this.formatAiResponse(response)}`;
             this.aiMessages.appendChild(aiMsgDiv);
 
         } catch (error) {
@@ -1382,6 +1438,22 @@ class WhatsAppChatViewer {
 
         // Scroll to bottom
         this.aiMessages.scrollTop = this.aiMessages.scrollHeight;
+    }
+
+    // Convert markdown to HTML for AI responses
+    formatAiResponse(text) {
+        return text
+            // Convert **bold** to <strong>
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            // Convert *italic* to <em>
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            // Convert newlines to <br>
+            .replace(/\n/g, '<br>')
+            // Convert bullet points
+            .replace(/•/g, '<br>• ')
+            .replace(/- /g, '<br>• ')
+            // Add spacing after colons in headers
+            .replace(/:\s*<br>/g, ':<br><br>');
     }
 
     buildChatContext() {
@@ -1440,7 +1512,7 @@ Keep responses concise but informative.`;
 
         const prompt = `${systemPrompt}\n\nCHAT CONTEXT:\n${chatContext}\n\nUSER QUESTION: ${userMessage}`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.geminiApiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1453,7 +1525,7 @@ Keep responses concise but informative.`;
                 }],
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 1024,
+                    maxOutputTokens: 4096,
                 }
             })
         });
