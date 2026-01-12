@@ -168,24 +168,57 @@ class WhatsAppChatViewer {
     parseChat(content) {
         this.messages = [];
         this.participants = new Set();
+        let dateFormat = 'MDY'; // Default to MM/DD/YYYY
 
         // WhatsApp chat export format patterns
-        // Format: [M/D/YY, H:MM:SS AM/PM] Name: Message
-        // or: M/D/YY, H:MM:SS AM/PM - Name: Message
         const patterns = [
+            // [DD/MM/YYYY, HH:MM:SS] Name: Message (No AM/PM, 24-hour)
+            /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?)\]\s*([^:]+):\s*(.*)$/i,
             // Format with brackets: [2/23/25, 11:14:51 AM] Name: message
             /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\]\s*([^:]+):\s*(.*)$/i,
             // Format without brackets: 2/23/25, 11:14:51 AM - Name: message  
-            /^(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\s*-\s*([^:]+):\s*(.*)$/i,
-            // Format with brackets, no seconds: [2/23/25, 11:14 AM] Name: message
-            /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)\]\s*([^:]+):\s*(.*)$/i
+            /^(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)\s*-\s*([^:]+):\s*(.*)$/i
         ];
 
         const lines = content.split('\n');
+
+        // First pass: Detect date format to avoid confusion between MM/DD and DD/MM
+        for (let line of lines) {
+            // Remove LTR marks and trim
+            line = line.replace(/^[\u200e\u200f]+/, '').trim();
+            if (!line) continue;
+
+            for (const pattern of patterns) {
+                const match = line.match(pattern);
+                if (match) {
+                    const dateStr = match[1];
+                    const parts = dateStr.split('/');
+                    const first = parseInt(parts[0]);
+                    const second = parseInt(parts[1]);
+
+                    // If first number > 12, it must be Day (DD/MM)
+                    if (first > 12) {
+                        dateFormat = 'DMY';
+                        break;
+                    }
+                    // If second number > 12, and first <= 12, it's likely Month first (MM/DD)
+                    else if (second > 12) {
+                        dateFormat = 'MDY';
+                        break;
+                    }
+                }
+            }
+            if (dateFormat === 'DMY') break; // Found conclusive evidence
+        }
+
+        console.log(`Detected date format: ${dateFormat}`);
+
         let currentMessage = null;
 
         for (let line of lines) {
-            line = line.trim();
+            // Crucial: Strip invisible characters (LTR marks) that break regex anchors
+            line = line.replace(/^[\u200e\u200f]+/, '').trim();
+
             if (!line) continue;
 
             let matched = false;
@@ -215,7 +248,7 @@ class WhatsAppChatViewer {
                         sender: cleanSender,
                         text: text,
                         isSystem: isSystemMessage,
-                        fullDateTime: this.parseDateTime(date, time)
+                        fullDateTime: this.parseDateTime(date, time, dateFormat)
                     };
 
                     matched = true;
@@ -252,12 +285,19 @@ class WhatsAppChatViewer {
         console.log(`Parsed ${this.messages.length} messages from ${this.participants.length} participants`);
     }
 
-    parseDateTime(dateStr, timeStr) {
+    parseDateTime(dateStr, timeStr, dateFormat = 'MDY') {
         try {
-            // Parse date (M/D/YY or M/D/YYYY)
+            // Parse date
             const dateParts = dateStr.split('/');
-            let month = parseInt(dateParts[0]) - 1;
-            let day = parseInt(dateParts[1]);
+            let month, day;
+
+            if (dateFormat === 'DMY') {
+                day = parseInt(dateParts[0]);
+                month = parseInt(dateParts[1]) - 1;
+            } else {
+                month = parseInt(dateParts[0]) - 1;
+                day = parseInt(dateParts[1]);
+            }
             let year = parseInt(dateParts[2]);
 
             // Handle 2-digit year
