@@ -85,11 +85,11 @@ class WhatsAppChatViewer {
         // Theme switcher
         this.themeBtn = document.getElementById('theme-btn');
         this.themes = [
+            { name: 'Lawrencium', background: "url('themes/Lawrencium.jpg') center center / cover no-repeat fixed" },
             { name: 'Coral Gradient', background: "linear-gradient(135deg, #1a1a2e 0%, #2a2547 25%, #1f1f35 50%, #2d1f3d 75%, #1a1a2e 100%)" },
-            { name: 'Purple Blue', background: "linear-gradient(135deg, #7b4b8a 0%, #6a5a99 25%, #5a6a9f 50%, #4f7aa6 75%, #4a85a8 100%)" },
-            { name: 'Deep Ocean', background: "linear-gradient(135deg, #006466 0%, #065A60 20%, #0B525B 40%, #1B3A4B 60%, #272640 80%, #4D194D 100%)" },
-            { name: 'Midnight Sky', background: "linear-gradient(135deg, #001F68 0%, #000C43 25%, #07072D 50%, #140647 75%, #200461 100%)" },
-            { name: 'Violet Night', background: "linear-gradient(135deg, #2D1744 0%, #260063 25%, #12005A 50%, #10044B 75%, #030148 100%)" }
+            { name: 'Moonlit Asteroid', background: "url('themes/Moonlit Asteroid.jpg') center center / cover no-repeat fixed" },
+            { name: 'Nimvelo', background: "url('themes/Nimvelo.jpg') center center / cover no-repeat fixed" },
+            { name: 'Sea Blue', background: "url('themes/Sea Blue.jpg') center center / cover no-repeat fixed" }
         ];
         this.currentThemeIndex = parseInt(localStorage.getItem('chat_theme_index') || '0');
 
