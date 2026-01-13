@@ -1002,9 +1002,9 @@ class WhatsAppChatViewer {
             div.appendChild(mediaContainer);
         }
 
-                // Text visibility logic
+        // Text visibility logic
         let showText = true;
-        
+
         if (message.attachment) {
             // ALWAYS hide text for stickers unless it's explicitly different
             if (message.attachment.isSticker) {
@@ -1012,21 +1012,22 @@ class WhatsAppChatViewer {
             } else {
                 // For images/videos, check if text is just metadata
                 let textToCheck = message.text.trim();
-                
+
                 // Remove the filename if present
                 if (message.attachment.name) {
                     textToCheck = textToCheck.replace(message.attachment.name, '');
                 }
-                
+
                 // Remove "(file attached)" marker
                 textToCheck = textToCheck.replace(/\(file attached\)/gi, '');
-                
+
                 // Remove "<attached: ...>" patterns
-                textToCheck = textToCheck.replace(/<attached:.*?>/gi, '');
-                
+                // Use [\s\S] to match across newlines if the tag was wrapped
+                textToCheck = textToCheck.replace(/<attached:[\s\S]*?>/gi, '');
+
                 // Cleanup whitespace
                 textToCheck = textToCheck.trim();
-                
+
                 // If nothing relevant is left, hide the text block
                 if (textToCheck.length === 0) {
                     showText = false;
