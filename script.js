@@ -1036,23 +1036,66 @@ class WhatsAppChatViewer {
         if (this.showStarredOnly) {
             this.showStarredOnly = false;
             this.starredFilterBtn.classList.remove('active');
-            this.renderMessages();
         }
 
-        // Find the message element
-        setTimeout(() => {
-            const messageElement = this.chatMessages.querySelector(`[data-message-id="${messageId}"]`);
-            if (messageElement) {
-                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Find the message index in the full message array
+        const messageIndex = this.messages.findIndex(m => m.id === messageId);
+        if (messageIndex === -1) return;
 
-                // Add highlight animation
-                messageElement.style.transition = 'background-color 0.3s ease';
-                messageElement.style.backgroundColor = 'rgba(255, 193, 7, 0.3)';
-                setTimeout(() => {
-                    messageElement.style.backgroundColor = '';
-                }, 2000);
+        // Update filtered messages (in case filter was active)
+        this.filteredMessages = this.messages;
+
+        // Check if message is in the currently rendered range
+        if (messageIndex >= this.renderedRange.start && messageIndex < this.renderedRange.end) {
+            // Message is already rendered, just scroll to it
+            this.scrollToAndHighlightMessage(messageId);
+        } else {
+            // Message is NOT rendered - need to load the chunk containing it
+            const currentViewer = this.participants[this.currentViewIndex];
+
+            // Calculate new range centered around the target message
+            const halfChunk = Math.floor(this.CHUNK_SIZE / 2);
+            const newStart = Math.max(0, messageIndex - halfChunk);
+            const newEnd = Math.min(this.filteredMessages.length, newStart + this.CHUNK_SIZE);
+
+            this.renderedRange.start = newStart;
+            this.renderedRange.end = newEnd;
+
+            // Clear and re-render
+            this.chatMessages.innerHTML = '';
+
+            // Add Load Older button if needed
+            if (this.renderedRange.start > 0) {
+                this.addLoadOlderButton();
             }
-        }, 100);
+
+            // Render the chunk
+            this.renderMessageChunk(this.renderedRange.start, this.renderedRange.end, currentViewer);
+
+            // Add Load Newer button if needed
+            if (this.renderedRange.end < this.filteredMessages.length) {
+                this.addLoadNewerButton();
+            }
+
+            // Now scroll to the message
+            setTimeout(() => {
+                this.scrollToAndHighlightMessage(messageId);
+            }, 100);
+        }
+    }
+
+    scrollToAndHighlightMessage(messageId) {
+        const messageElement = this.chatMessages.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Add highlight animation
+            messageElement.style.transition = 'background-color 0.3s ease';
+            messageElement.style.backgroundColor = 'rgba(255, 193, 7, 0.3)';
+            setTimeout(() => {
+                messageElement.style.backgroundColor = '';
+            }, 2000);
+        }
     }
 
     // ========================================
