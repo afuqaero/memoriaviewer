@@ -80,7 +80,7 @@ class WhatsAppChatViewer {
         // Security state
         this.skipExternalLinkWarning = false;
         this.pendingExternalUrl = null;
-        this.MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+        this.MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB limit for ZIPs with media
 
         // Initialize
         this.bindEvents();
@@ -213,9 +213,9 @@ class WhatsAppChatViewer {
     }
 
     processFile(file) {
-        // Security: Check file size (4MB limit)
+        // Security: Check file size (2GB limit for ZIPs with media)
         if (file.size > this.MAX_FILE_SIZE) {
-            alert(`File too large! Maximum allowed size is 4MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+            alert(`File too large! Maximum allowed size is 2GB. Your file is ${(file.size / (1024 * 1024 * 1024)).toFixed(2)}GB.`);
             return;
         }
 
@@ -264,7 +264,38 @@ class WhatsAppChatViewer {
                 const zip = new JSZip();
                 const zipContent = await zip.loadAsync(e.target.result);
 
-                // Find the first txt file that is not a system file
+                // Clear previous attachments to free memory
+                this.revokeAttachmentUrls();
+                this.attachments = new Map();
+
+                // 1. Extract all media files first
+                const mediaPromises = [];
+                zipContent.forEach((relativePath, zipEntry) => {
+                    if (zipEntry.dir) return;
+
+                    const name = zipEntry.name.split('/').pop(); // Handle nested folders if any
+                    const lowerName = name.toLowerCase();
+
+                    // Check for supported media types
+                    if (lowerName.match(/\.(jpg|jpeg|png|webp|gif|mp4)$/)) {
+                        const promise = zipEntry.async('blob').then(blob => {
+                            // Create object URL
+                            const url = URL.createObjectURL(blob);
+                            this.attachments.set(name, {
+                                url: url,
+                                type: lowerName.endsWith('.mp4') ? 'video' : 'image',
+                                isSticker: lowerName.endsWith('.webp') // Typical for WhatsApp stickers
+                            });
+                        });
+                        mediaPromises.push(promise);
+                    }
+                });
+
+                // Wait for all media to be extracted
+                await Promise.all(mediaPromises);
+                console.log(`Extracted ${this.attachments.size} media files`);
+
+                // 2. Find and process the chat text file
                 const txtFileName = Object.keys(zipContent.files).find(name =>
                     name.toLowerCase().endsWith('.txt') && !name.startsWith('__MACOSX') && !name.startsWith('.')
                 );
@@ -281,6 +312,13 @@ class WhatsAppChatViewer {
             }
         };
         reader.readAsArrayBuffer(file);
+    }
+
+    revokeAttachmentUrls() {
+        if (this.attachments) {
+            this.attachments.forEach(att => URL.revokeObjectURL(att.url));
+            this.attachments.clear();
+        }
     }
 
     async processContent(content) {
@@ -404,16 +442,41 @@ class WhatsAppChatViewer {
                         this.participants.add(cleanSender);
                     }
 
+                    // Check for attachment in text
+                    // Pattern 1: "filename.jpg (file attached)"
+                    // Pattern 2: just "filename.jpg" (sometimes happens)
+                    let attachment = null;
+                    const attachmentMatch = text.match(/(.*?)\s*\(file attached\)$/);
+                    const potentialFileName = attachmentMatch ? attachmentMatch[1] : text.trim();
+
+                    // Try to find exact match in attachments map
+                    if (this.attachments && this.attachments.has(potentialFileName)) {
+                        attachment = this.attachments.get(potentialFileName);
+                    }
+                    // Try finding by just the filename if path exists
+                    else if (this.attachments) {
+                        // Sometimes text has "IMG-2023.jpg" but zip has "Start/IMG-2023.jpg"
+                        // We already flattened names in processZipFile, so direct lookup should work
+                        // unless text has extra words. 
+                        // Let's also check if the text *contains* a known attachment name
+                        for (const [name, data] of this.attachments.entries()) {
+                            if (text.includes(name)) {
+                                attachment = data;
+                                break;
+                            }
+                        }
+                    }
+
                     currentMessage = {
                         id: `msg_${this.messages.length}_${Date.now()}`,
                         date: date,
                         time: this.formatTime(time),
                         sender: cleanSender,
-                        text: text,
+                        text: text, // Keep original text
                         isSystem: isSystemMessage,
-                        fullDateTime: this.parseDateTime(date, time, dateFormat)
+                        fullDateTime: this.parseDateTime(date, time, dateFormat),
+                        attachment: attachment // Add attachment data
                     };
-
                     matched = true;
                     break;
                 }
@@ -909,8 +972,72 @@ class WhatsAppChatViewer {
         // Message text with link detection
         const textDiv = document.createElement('div');
         textDiv.className = 'message-text';
-        textDiv.innerHTML = this.detectAndWrapLinks(message.text);
-        div.appendChild(textDiv);
+
+        // Render Attachment if exists
+        if (message.attachment) {
+            const mediaContainer = document.createElement('div');
+            mediaContainer.className = 'message-media';
+
+            if (message.attachment.type === 'image') {
+                const img = document.createElement('img');
+                img.src = message.attachment.url;
+                img.loading = 'lazy';
+                if (message.attachment.isSticker) {
+                    img.className = 'media-sticker';
+                    // Stickers usually don't have text, but if they do, we show it below
+                } else {
+                    img.className = 'media-image';
+                }
+                // Add click to view full size (simple implementation)
+                img.onclick = () => window.open(img.src, '_blank');
+                mediaContainer.appendChild(img);
+            } else if (message.attachment.type === 'video') {
+                const video = document.createElement('video');
+                video.src = message.attachment.url;
+                video.controls = true;
+                video.className = 'media-video';
+                mediaContainer.appendChild(video);
+            }
+
+            div.appendChild(mediaContainer);
+        }
+
+        // Text visibility logic
+        let showText = true;
+        if (message.attachment) {
+            // ALWAYS hide text for stickers unless it's explicitly different? 
+            // Usually stickers have no caption in WhatsApp. 
+            // If the text is just the filename or the "attached" marker, hide it.
+            if (message.attachment.isSticker) {
+                showText = false;
+            } else {
+                // For images/videos, check if text is just metadata
+                const text = message.text.trim();
+                const isFilename = text.includes(message.attachment.name);
+                const isAttachedMarker = text.includes('(file attached)') || text.toLowerCase().startsWith('<attached:');
+
+                // If the text is JUST the filename/marker, hide it. 
+                // We want to keep real captions (e.g. "Look at this cat! IMG001.jpg (file attached)")
+                // But usually the export is just "IMG001.jpg (file attached)"
+                if (isFilename || isAttachedMarker) {
+                    // Check if there's other content
+                    const cleanText = text
+                        .replace(message.attachment.name, '')
+                        .replace('(file attached)', '')
+                        .replace(/<attached:.*?>/i, '')
+                        .trim();
+
+                    if (cleanText.length === 0) {
+                        showText = false;
+                    }
+                }
+            }
+        }
+
+        if (showText) {
+            textDiv.innerHTML = this.detectAndWrapLinks(message.text);
+            div.appendChild(textDiv);
+        }
 
         // Meta (time + status)
         const metaDiv = document.createElement('div');

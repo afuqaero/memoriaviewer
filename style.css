@@ -612,6 +612,45 @@ body {
     border-color: transparent var(--bubble-incoming) transparent transparent;
 }
 
+/* ========================================
+   Message Media (Images/Stickers)
+======================================== */
+.message-media {
+    margin-bottom: 4px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    position: relative;
+    max-width: 100%;
+}
+
+.media-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.media-image:hover {
+    transform: scale(1.02);
+}
+
+.media-sticker {
+    display: block;
+    max-width: 140px;
+    /* Stickers shouldn't be too huge */
+    max-height: 140px;
+    height: auto;
+    cursor: pointer;
+    /* Stickers might not need border radius or background */
+}
+
+.media-video {
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+}
+
 .message-sender {
     font-size: 0.8rem;
     font-weight: 500;
