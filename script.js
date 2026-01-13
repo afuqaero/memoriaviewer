@@ -1025,8 +1025,8 @@ class WhatsAppChatViewer {
                 // Use [\s\S] to match across newlines if the tag was wrapped
                 textToCheck = textToCheck.replace(/<attached:[\s\S]*?>/gi, '');
 
-                // Cleanup whitespace
-                textToCheck = textToCheck.trim();
+                // Cleanup whitespace and invisible characters
+                textToCheck = textToCheck.replace(/[\u200e\u200f\u200B\u200C\u200D\uFEFF]/g, '').trim();
 
                 // If nothing relevant is left, hide the text block
                 if (textToCheck.length === 0) {
