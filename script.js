@@ -926,9 +926,8 @@ class WhatsAppChatViewer {
             const statusDiv = document.createElement('div');
             statusDiv.className = 'message-status';
             statusDiv.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="11" viewBox="0 0 16 11">
-                    <path fill="currentColor" d="M11.071 0L5.714 5.357 3.071 2.714 0 5.786l5.714 5.714L14.143 3.071z"/>
-                    <path fill="currentColor" d="M15.071 3.071L12 0 6.714 5.286l3.072 3.071z"/>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="10" viewBox="0 0 16 10">
+                    <path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M1.5 5.5l3.5 3.5 9-9"/>
                 </svg>
             `;
             metaDiv.appendChild(statusDiv);
