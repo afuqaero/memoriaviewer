@@ -676,15 +676,15 @@ body {
 
 /* Position for Incoming (Left aligned) -> Star on Right */
 .message.incoming .message-star {
-    right: -55px;
-    /* Moved further out for bigger star */
+    right: -40px;
+    /* Closer to bubble */
     color: var(--text-secondary);
 }
 
 /* Position for Outgoing (Right aligned) -> Star on Left */
 .message.outgoing .message-star {
-    left: -55px;
-    /* Moved further out for bigger star */
+    left: -40px;
+    /* Closer to bubble */
     color: rgba(255, 255, 255, 0.5);
     /* Lighter star for outgoing context */
 }
