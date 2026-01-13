@@ -69,6 +69,19 @@ class WhatsAppChatViewer {
         this.geminiApiKey = localStorage.getItem('gemini_api_key') || '';
         this.aiConversationHistory = [];
 
+        // External link modal elements
+        this.externalLinkModal = document.getElementById('external-link-modal');
+        this.externalLinkUrl = document.getElementById('external-link-url');
+        this.closeExternalLinkBtn = document.getElementById('close-external-link-modal');
+        this.cancelExternalLinkBtn = document.getElementById('cancel-external-link');
+        this.continueExternalLinkBtn = document.getElementById('continue-external-link');
+        this.dontWarnAgainCheckbox = document.getElementById('dont-warn-again');
+
+        // Security state
+        this.skipExternalLinkWarning = false;
+        this.pendingExternalUrl = null;
+        this.MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+
         // Initialize
         this.bindEvents();
     }
@@ -150,6 +163,12 @@ class WhatsAppChatViewer {
                 this.sendAiMessage();
             });
         });
+
+        // External link modal events
+        this.closeExternalLinkBtn.addEventListener('click', () => this.closeExternalLinkModal());
+        this.cancelExternalLinkBtn.addEventListener('click', () => this.closeExternalLinkModal());
+        this.continueExternalLinkBtn.addEventListener('click', () => this.proceedToExternalLink());
+        this.externalLinkModal.querySelector('.modal-overlay').addEventListener('click', () => this.closeExternalLinkModal());
     }
 
     scrollToTop() {
@@ -194,14 +213,40 @@ class WhatsAppChatViewer {
     }
 
     processFile(file) {
+        // Security: Check file size (4MB limit)
+        if (file.size > this.MAX_FILE_SIZE) {
+            alert(`File too large! Maximum allowed size is 4MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+            return;
+        }
+
         const fileName = file.name.toLowerCase();
+
+        // Security: Validate MIME type
         if (fileName.endsWith('.zip')) {
+            if (!this.validateFileMimeType(file, 'zip')) {
+                alert('Invalid file type! The file does not appear to be a valid ZIP archive.');
+                return;
+            }
             this.processZipFile(file);
         } else if (fileName.endsWith('.txt')) {
+            if (!this.validateFileMimeType(file, 'txt')) {
+                alert('Invalid file type! The file does not appear to be a valid text file.');
+                return;
+            }
             this.processTextFile(file);
         } else {
             alert('Please upload a .txt file or a .zip file containing the chat.');
         }
+    }
+
+    // Security: Validate file MIME type
+    validateFileMimeType(file, expectedType) {
+        const validMimeTypes = {
+            'txt': ['text/plain', 'text/x-log', ''],  // Some browsers report empty for .txt
+            'zip': ['application/zip', 'application/x-zip-compressed', 'application/octet-stream', '']
+        };
+
+        return validMimeTypes[expectedType]?.includes(file.type) ?? false;
     }
 
     processTextFile(file) {
@@ -239,6 +284,9 @@ class WhatsAppChatViewer {
     }
 
     async processContent(content) {
+        // Security: Sanitize unicode characters before processing
+        content = this.sanitizeUnicode(content);
+
         // Calculate Checksum for Data Integrity
         try {
             this.fileChecksum = await this.calculateChecksum(content);
@@ -249,6 +297,24 @@ class WhatsAppChatViewer {
 
         this.parseChat(content);
         this.showChatScreen();
+    }
+
+    // Security: Sanitize dangerous unicode characters
+    sanitizeUnicode(text) {
+        return text
+            // Remove zero-width characters
+            .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+            // Remove bidirectional override characters
+            .replace(/[\u202A-\u202E\u2066-\u2069]/g, '')
+            // Normalize unicode to NFKC form
+            .normalize('NFKC');
+    }
+
+    // Security: Escape HTML to prevent XSS
+    sanitizeHTML(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     async calculateChecksum(text) {
@@ -840,10 +906,10 @@ class WhatsAppChatViewer {
             div.appendChild(senderDiv);
         }
 
-        // Message text
+        // Message text with link detection
         const textDiv = document.createElement('div');
         textDiv.className = 'message-text';
-        textDiv.textContent = message.text;
+        textDiv.innerHTML = this.detectAndWrapLinks(message.text);
         div.appendChild(textDiv);
 
         // Meta (time + status)
@@ -1440,9 +1506,12 @@ class WhatsAppChatViewer {
         this.aiMessages.scrollTop = this.aiMessages.scrollHeight;
     }
 
-    // Convert markdown to HTML for AI responses
+    // Convert markdown to HTML for AI responses (with XSS protection)
     formatAiResponse(text) {
-        return text
+        // First sanitize the raw text to prevent XSS
+        let sanitized = this.sanitizeHTML(text);
+
+        return sanitized
             // Convert **bold** to <strong>
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
             // Convert *italic* to <em>
@@ -1533,9 +1602,70 @@ Keep responses concise but informative.`;
         const data = await response.json();
         return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
     }
+
+    // ========================================
+    // External Link Security Methods
+    // ========================================
+
+    // Detect URLs in message text and wrap them with clickable links
+    detectAndWrapLinks(text) {
+        // First, escape HTML to prevent XSS
+        const escapedText = this.sanitizeHTML(text);
+
+        // URL detection regex
+        const urlPattern = /(https?:\/\/[^\s<>]+|www\.[^\s<>]+)/gi;
+
+        return escapedText.replace(urlPattern, (match) => {
+            // Ensure URL has protocol
+            let url = match;
+            if (match.startsWith('www.')) {
+                url = 'https://' + match;
+            }
+
+            // Create a safe link with external warning handler
+            return `<a href="#" class="message-link" data-external-url="${this.sanitizeHTML(url)}" onclick="event.preventDefault(); window.chatViewer.handleExternalLink('${this.sanitizeHTML(url)}')">${match}</a>`;
+        });
+    }
+
+    // Handle click on external link
+    handleExternalLink(url) {
+        // If user has opted to skip warnings this session, proceed directly
+        if (this.skipExternalLinkWarning) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        // Store pending URL and show modal
+        this.pendingExternalUrl = url;
+        this.externalLinkUrl.textContent = url;
+        this.dontWarnAgainCheckbox.checked = false;
+        this.externalLinkModal.classList.remove('hidden');
+    }
+
+    // Close external link modal without navigating
+    closeExternalLinkModal() {
+        this.externalLinkModal.classList.add('hidden');
+        this.pendingExternalUrl = null;
+    }
+
+    // Proceed to external link after user confirmation
+    proceedToExternalLink() {
+        if (this.pendingExternalUrl) {
+            // Check if user wants to skip future warnings
+            if (this.dontWarnAgainCheckbox.checked) {
+                this.skipExternalLinkWarning = true;
+            }
+
+            // Open link in new tab with security attributes
+            window.open(this.pendingExternalUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        this.closeExternalLinkModal();
+    }
 }
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-    new WhatsAppChatViewer();
+    // Expose to window for external link handling
+    window.chatViewer = new WhatsAppChatViewer();
 });

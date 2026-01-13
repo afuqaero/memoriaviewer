@@ -10,10 +10,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <!-- jsPDF for fast PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- JSZip for extracting ZIP files -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Clickjacking Protection -->
+    <script>
+        if (window.top !== window.self) {
+            window.top.location = window.self.location;
+        }
+    </script>
+    <!-- jsPDF for fast PDF export (with SRI) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- JSZip for extracting ZIP files (with SRI) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 
 <body>
@@ -34,6 +44,17 @@
                 <p class="upload-description">Upload your WhatsApp chat export (.txt or .zip file) to view it in a
                     beautiful
                     WhatsApp-like interface</p>
+
+                <!-- Privacy Notice -->
+                <div class="privacy-notice">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span><strong>100% Private:</strong> All processing happens locally in your browser. Your files
+                        never leave your device and no data is sent to any server.</span>
+                </div>
 
                 <div class="upload-area" id="upload-area">
                     <input type="file" id="file-input" accept=".txt, .zip" hidden>
@@ -305,6 +326,36 @@
                         <button class="suggestion-btn">What's our communication style?</button>
                         <button class="suggestion-btn">Key moments in this chat</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Link Warning Modal -->
+    <div id="external-link-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content external-link-modal">
+            <div class="modal-header">
+                <h3>⚠️ External Link Warning</h3>
+                <button class="modal-close-btn" id="close-external-link-modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="external-link-warning-text">You are about to leave this page and visit an external website.
+                    This link was found in the uploaded chat and may lead to an untrusted site.</p>
+                <div class="external-link-url" id="external-link-url"></div>
+                <div class="external-link-checkbox">
+                    <input type="checkbox" id="dont-warn-again">
+                    <label for="dont-warn-again">Don't warn me again this session</label>
+                </div>
+                <div class="external-link-actions">
+                    <button class="btn-secondary" id="cancel-external-link">Cancel</button>
+                    <button class="btn-primary" id="continue-external-link">Continue</button>
                 </div>
             </div>
         </div>

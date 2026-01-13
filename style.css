@@ -1394,3 +1394,117 @@ body {
     background: var(--bg-tertiary);
     color: var(--text-primary);
 }
+
+/* ========================================
+   Security UI Components
+======================================== */
+
+/* Privacy Notice */
+.privacy-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.privacy-notice svg {
+    color: #22c55e;
+    flex-shrink: 0;
+}
+
+.privacy-notice span {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.privacy-notice strong {
+    color: #22c55e;
+}
+
+/* External Link Modal */
+.external-link-modal {
+    max-width: 420px;
+}
+
+.external-link-warning-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+.external-link-url {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--accent-purple-light);
+    word-break: break-all;
+    margin-bottom: 16px;
+}
+
+.external-link-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.external-link-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-purple);
+}
+
+.external-link-checkbox label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.external-link-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.external-link-actions .btn-secondary {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+}
+
+.external-link-actions .btn-primary {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    background: var(--gradient-bubble);
+}
+
+/* Message Links */
+.message-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.message-link:hover {
+    opacity: 0.8;
+}
+
+.message.outgoing .message-link {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.message.incoming .message-link {
+    color: var(--accent-purple);
+}
