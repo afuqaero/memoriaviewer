@@ -46,7 +46,8 @@ You just need a modern web browser (Chrome, Edge, Firefox, Safari).
 
 ## 📸 Screenshots
 
-*(Add screenshots of your application here)*
+<img width="715" height="922" alt="image" src="https://github.com/user-attachments/assets/2f15e7b0-7f0a-437f-98cf-3d194796a725" />
+
 
 ## 🤝 Contributing
 
