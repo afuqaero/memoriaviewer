@@ -449,8 +449,8 @@ class WhatsAppChatViewer {
                     // Pattern 3: just "filename.jpg" (sometimes happens)
                     let attachment = null;
                     const attachmentMatch = text.match(/(.*?)\s*\(file attached\)$/);
-                    // Use [\s\S] to match content across lines if needed
-                    const attachedTagMatch = text.match(/<attached:\s*([\s\S]*?)>/);
+                    // Use [\s\S] to match content across lines if needed, and loose matching
+                    const attachedTagMatch = text.match(/<\s*attached\s*:?\s*([\s\S]*?)>/);
 
                     let potentialFileName = text.trim();
                     if (attachmentMatch) {
