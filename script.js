@@ -1021,51 +1021,48 @@ class WhatsAppChatViewer {
             div.appendChild(mediaContainer);
         }
 
-        // Text visibility logic
+                // Text visibility logic
         let showText = true;
+        let cleanText = message.text;
 
+        // 1. Universal cleaning of technical markers (apply to ALL messages)
+        // This handles cases where attachment linking failed but the tag is in the text
+        cleanText = cleanText.replace(/\(file attached\)/gi, '');
+        // Use [\s\S] to match across newlines
+        cleanText = cleanText.replace(/<attached:[\s\S]*?>/gi, '');
+
+        // 2. Specific cleaning if attachment data exists
         if (message.attachment) {
             // ALWAYS hide text for stickers unless it's explicitly different
             if (message.attachment.isSticker) {
                 showText = false;
-            } else {
-                // For images/videos, check if text is just metadata
-                // We will clean the text for both checking AND display
-                let cleanText = message.text;
-
-                // Remove the filename if present
-                // Remove the filename if present (case-insensitive)
-                if (message.attachment.name) {
-                    const nameRegex = new RegExp(message.attachment.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-                    cleanText = cleanText.replace(nameRegex, '');
-                }
-
-                // Remove "(file attached)" marker
-                cleanText = cleanText.replace(/\(file attached\)/gi, '');
-
-                // Remove "<attached: ...>" patterns
-                cleanText = cleanText.replace(/<attached:[\s\S]*?>/gi, '');
-
-                // Cleanup whitespace/invisible chars checks
-                const textToCheck = cleanText.replace(/[\u200e\u200f\u200B\u200C\u200D\uFEFF]/g, '').trim();
-
-                // If nothing relevant is left, hide the text block
-                if (textToCheck.length === 0) {
-                    showText = false;
-                } else {
-                    // Fallback: If the text still *looks* like a technical string (e.g. regex failed slightly), hide it
-                    // This catches cases like <attached: ... > (spaces) or unclosed tags
-                    const looksLikeTechnical = /^\s*<attached:|^\s*\(file attached\)$|^\s*[\w-]+\.\w+\s*$/i.test(textToCheck);
-
-                    if (looksLikeTechnical) {
-                        showText = false;
-                    } else {
-                        // Update the message text to be the cleaned version for display
-                        // This ensures that even if we show text (caption), we don't show the ugly tags
-                        message.displayText = cleanText.trim();
-                    }
-                }
+            } 
+            
+            // Remove the filename if present (case-insensitive)
+            if (message.attachment.name) {
+                const nameRegex = new RegExp(message.attachment.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                cleanText = cleanText.replace(nameRegex, '');
             }
+        }
+
+        // 3. Final cleanup and decision
+        // Cleanup whitespace and invisible characters
+        const textToCheck = cleanText.replace(/[\u200e\u200f\u200B\u200C\u200D\uFEFF]/g, '').trim();
+        
+        // If nothing relevant is left, hide the text block
+        if (textToCheck.length === 0) {
+            showText = false;
+        } else {
+             // Fallback: If the text still *looks* like a technical string (e.g. regex failed slightly), hide it
+             // This catches cases like <attached: ... > (spaces) or unclosed tags
+             const looksLikeTechnical = /^\s*<attached:|^\s*\(file attached\)$|^\s*[\w-]+\.\w+\s*$/i.test(textToCheck);
+             
+             if (looksLikeTechnical) {
+                  showText = false;
+             } else {
+                 // Update the message text to be the cleaned version for display
+                 message.displayText = cleanText.trim();
+             }
         }
 
         if (showText) {
