@@ -1021,23 +1021,23 @@ class WhatsAppChatViewer {
             div.appendChild(mediaContainer);
         }
 
-                // Text visibility logic
+        // Text visibility logic
         let showText = true;
         let cleanText = message.text;
 
         // 1. Universal cleaning of technical markers (apply to ALL messages)
         // This handles cases where attachment linking failed but the tag is in the text
         cleanText = cleanText.replace(/\(file attached\)/gi, '');
-        // Use [\s\S] to match across newlines
-        cleanText = cleanText.replace(/<attached:[\s\S]*?>/gi, '');
+        // Use [\s\S] to match across newlines, allow optional space after <
+        cleanText = cleanText.replace(/<\s*attached:[\s\S]*?>/gi, '');
 
         // 2. Specific cleaning if attachment data exists
         if (message.attachment) {
             // ALWAYS hide text for stickers unless it's explicitly different
             if (message.attachment.isSticker) {
                 showText = false;
-            } 
-            
+            }
+
             // Remove the filename if present (case-insensitive)
             if (message.attachment.name) {
                 const nameRegex = new RegExp(message.attachment.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
@@ -1048,21 +1048,21 @@ class WhatsAppChatViewer {
         // 3. Final cleanup and decision
         // Cleanup whitespace and invisible characters
         const textToCheck = cleanText.replace(/[\u200e\u200f\u200B\u200C\u200D\uFEFF]/g, '').trim();
-        
+
         // If nothing relevant is left, hide the text block
         if (textToCheck.length === 0) {
             showText = false;
         } else {
-             // Fallback: If the text still *looks* like a technical string (e.g. regex failed slightly), hide it
-             // This catches cases like <attached: ... > (spaces) or unclosed tags
-             const looksLikeTechnical = /^\s*<attached:|^\s*\(file attached\)$|^\s*[\w-]+\.\w+\s*$/i.test(textToCheck);
-             
-             if (looksLikeTechnical) {
-                  showText = false;
-             } else {
-                 // Update the message text to be the cleaned version for display
-                 message.displayText = cleanText.trim();
-             }
+            // Fallback: If the text still *looks* like a technical string (e.g. regex failed slightly), hide it
+            // This catches cases like <attached: ... > (spaces), unclosed tags, or just a filename with spaces/dashes
+            const looksLikeTechnical = /^\s*<\s*attached:|^\s*\(file attached\)$|^\s*[\w\s.-]+\.\w+\s*$/i.test(textToCheck);
+
+            if (looksLikeTechnical) {
+                showText = false;
+            } else {
+                // Update the message text to be the cleaned version for display
+                message.displayText = cleanText.trim();
+            }
         }
 
         if (showText) {
