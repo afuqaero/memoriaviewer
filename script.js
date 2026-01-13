@@ -457,20 +457,29 @@ class WhatsAppChatViewer {
                         potentialFileName = attachedTagMatch[1].trim();
                     }
 
-                    // Try to find exact match in attachments map
-                    if (this.attachments && this.attachments.has(potentialFileName)) {
-                        attachment = this.attachments.get(potentialFileName);
-                    }
-                    // Try finding by just the filename if path exists
-                    else if (this.attachments) {
-                        // Sometimes text has "IMG-2023.jpg" but zip has "Start/IMG-2023.jpg"
-                        // We already flattened names in processZipFile, so direct lookup should work
-                        // unless text has extra words. 
-                        // Let's also check if the text *contains* a known attachment name
-                        for (const [name, data] of this.attachments.entries()) {
-                            if (text.includes(name)) {
-                                attachment = data;
-                                break;
+                    // Try to find match in attachments map
+                    if (this.attachments) {
+                        // 1. Exact match
+                        if (this.attachments.has(potentialFileName)) {
+                            attachment = this.attachments.get(potentialFileName);
+                        } else {
+                            // 2. Case-insensitive match
+                            const lowerPotential = potentialFileName.toLowerCase();
+                            for (const [name, data] of this.attachments.entries()) {
+                                if (name.toLowerCase() === lowerPotential) {
+                                    attachment = data;
+                                    break;
+                                }
+                            }
+
+                            // 3. Fallback: check if text contains a known attachment name (case-insensitive)
+                            if (!attachment) {
+                                for (const [name, data] of this.attachments.entries()) {
+                                    if (text.toLowerCase().includes(name.toLowerCase())) {
+                                        attachment = data;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
