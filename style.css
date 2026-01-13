@@ -675,13 +675,13 @@ body {
 
 /* Position for Incoming (Left aligned) -> Star on Right */
 .message.incoming .message-star {
-    right: -36px;
+    right: -45px;
     color: var(--text-secondary);
 }
 
 /* Position for Outgoing (Right aligned) -> Star on Left */
 .message.outgoing .message-star {
-    left: -36px;
+    left: -45px;
     color: rgba(255, 255, 255, 0.5);
     /* Lighter star for outgoing context */
 }
@@ -694,8 +694,8 @@ body {
 }
 
 .message-star svg {
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     stroke-width: 2px;
 }
 
