@@ -567,11 +567,11 @@ class WhatsAppChatViewer {
 
         this.renderMessages();
 
-        // Add a small animation feedback
-        this.switchViewBtn.style.transform = 'rotate(180deg)';
+        // Add a small animation feedback (scale like other buttons)
+        this.switchViewBtn.style.transform = 'scale(0.9)';
         setTimeout(() => {
-            this.switchViewBtn.style.transform = 'rotate(0deg)';
-        }, 300);
+            this.switchViewBtn.style.transform = 'scale(1)';
+        }, 150);
     }
 
     renderMessages() {
