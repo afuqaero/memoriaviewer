@@ -1028,8 +1028,9 @@ class WhatsAppChatViewer {
         // 1. Universal cleaning of technical markers (apply to ALL messages)
         // This handles cases where attachment linking failed but the tag is in the text
         cleanText = cleanText.replace(/\(file attached\)/gi, '');
-        // Use [\s\S] to match across newlines, allow optional space after <
-        cleanText = cleanText.replace(/<\s*attached:[\s\S]*?>/gi, '');
+        // Use [\s\S] to match across newlines, allow optional space after <, and loose matching for 'attached'
+        // Matches < attached : ... > or <attached...>
+        cleanText = cleanText.replace(/<\s*attached[\s\S]*?>/gi, '');
 
         // 2. Specific cleaning if attachment data exists
         if (message.attachment) {
