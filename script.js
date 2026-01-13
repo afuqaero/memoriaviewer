@@ -1011,32 +1011,38 @@ class WhatsAppChatViewer {
                 showText = false;
             } else {
                 // For images/videos, check if text is just metadata
-                let textToCheck = message.text.trim();
+                // We will clean the text for both checking AND display
+                let cleanText = message.text;
 
                 // Remove the filename if present
                 if (message.attachment.name) {
-                    textToCheck = textToCheck.replace(message.attachment.name, '');
+                    cleanText = cleanText.replace(message.attachment.name, '');
                 }
 
                 // Remove "(file attached)" marker
-                textToCheck = textToCheck.replace(/\(file attached\)/gi, '');
+                cleanText = cleanText.replace(/\(file attached\)/gi, '');
 
                 // Remove "<attached: ...>" patterns
-                // Use [\s\S] to match across newlines if the tag was wrapped
-                textToCheck = textToCheck.replace(/<attached:[\s\S]*?>/gi, '');
+                cleanText = cleanText.replace(/<attached:[\s\S]*?>/gi, '');
 
-                // Cleanup whitespace and invisible characters
-                textToCheck = textToCheck.replace(/[\u200e\u200f\u200B\u200C\u200D\uFEFF]/g, '').trim();
+                // Cleanup whitespace/invisible chars checks
+                const textToCheck = cleanText.replace(/[\u200e\u200f\u200B\u200C\u200D\uFEFF]/g, '').trim();
 
                 // If nothing relevant is left, hide the text block
                 if (textToCheck.length === 0) {
                     showText = false;
+                } else {
+                    // Update the message text to be the cleaned version for display
+                    // This ensures that even if we show text (caption), we don't show the ugly tags
+                    message.displayText = cleanText.trim();
                 }
             }
         }
 
         if (showText) {
-            textDiv.innerHTML = this.detectAndWrapLinks(message.text);
+            // Use displayText if available (cleaned), otherwise original text
+            const textToDisplay = message.displayText || message.text;
+            textDiv.innerHTML = this.detectAndWrapLinks(textToDisplay);
             div.appendChild(textDiv);
         }
 
