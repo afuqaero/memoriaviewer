@@ -651,8 +651,8 @@ body {
 .message-star {
     position: absolute;
     top: 50%;
-    transform: translateY(calc(-50% - 8px));
-    /* Shift up 8px to visual center (compensating for bottom timestamp padding) */
+    transform: translateY(calc(-50% + 4px));
+    /* Shift down 4px to visual center */
     background: none;
     border: none;
     padding: 2px;
@@ -704,7 +704,7 @@ body {
 }
 
 .message-star:hover {
-    transform: translateY(calc(-50% - 8px)) scale(1.1);
+    transform: translateY(calc(-50% + 4px)) scale(1.1);
     /* Keep vertical offset on hover */
     color: #ffc107;
 }
