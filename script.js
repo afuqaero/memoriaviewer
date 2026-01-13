@@ -444,10 +444,18 @@ class WhatsAppChatViewer {
 
                     // Check for attachment in text
                     // Pattern 1: "filename.jpg (file attached)"
-                    // Pattern 2: just "filename.jpg" (sometimes happens)
+                    // Pattern 2: "<attached: filename.jpg>" (User reported format)
+                    // Pattern 3: just "filename.jpg" (sometimes happens)
                     let attachment = null;
                     const attachmentMatch = text.match(/(.*?)\s*\(file attached\)$/);
-                    const potentialFileName = attachmentMatch ? attachmentMatch[1] : text.trim();
+                    const attachedTagMatch = text.match(/<attached:\s*(.*?)>/);
+
+                    let potentialFileName = text.trim();
+                    if (attachmentMatch) {
+                        potentialFileName = attachmentMatch[1];
+                    } else if (attachedTagMatch) {
+                        potentialFileName = attachedTagMatch[1].trim();
+                    }
 
                     // Try to find exact match in attachments map
                     if (this.attachments && this.attachments.has(potentialFileName)) {
