@@ -1034,8 +1034,10 @@ class WhatsAppChatViewer {
                 let cleanText = message.text;
 
                 // Remove the filename if present
+                // Remove the filename if present (case-insensitive)
                 if (message.attachment.name) {
-                    cleanText = cleanText.replace(message.attachment.name, '');
+                    const nameRegex = new RegExp(message.attachment.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    cleanText = cleanText.replace(nameRegex, '');
                 }
 
                 // Remove "(file attached)" marker
