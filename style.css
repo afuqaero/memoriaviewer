@@ -1692,3 +1692,51 @@ body {
         height: 20px;
     }
 }
+
+/* Mobile responsive adjustments for header and theme button */
+@media (max-width: 768px) {
+    .header-actions {
+        gap: 2px;
+    }
+
+    .header-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .header-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Fix iOS background-attachment: fixed issue */
+    .chat-messages {
+        background-attachment: scroll !important;
+    }
+
+    .chat-container {
+        max-width: 100%;
+    }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 360px) {
+    .header-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .header-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .chat-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .chat-info h2 {
+        font-size: 0.9rem;
+    }
+}
