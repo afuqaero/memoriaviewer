@@ -46,7 +46,7 @@ You just need a modern web browser (Chrome, Edge, Firefox, Safari).
 
 ## 📸 Screenshots
 
-*(Add screenshots of your application here)*
+![Uploading image.png…]()
 
 ## 🤝 Contributing
 
