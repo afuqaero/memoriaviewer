@@ -636,13 +636,80 @@ body {
 
 .message-meta {
     position: absolute;
-    bottom: 6px;
-    right: 10px;
+    bottom: 4px;
+    right: 8px;
     display: flex;
     align-items: center;
     gap: 4px;
     background: transparent;
     padding-left: 8px;
+}
+
+/* ========================================
+   Message Star (External)
+======================================== */
+.message-star {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 8px;
+    /* Hit area */
+    cursor: pointer;
+    color: var(--text-secondary);
+    opacity: 0.1;
+    /* Low opacity by default */
+    transition: all 0.2s ease;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Show star on hover or when starred */
+.message:hover .message-star,
+.message-star.starred {
+    opacity: 1;
+}
+
+/* Position for Incoming (Left aligned) -> Star on Right */
+.message.incoming .message-star {
+    right: -36px;
+    color: var(--text-secondary);
+}
+
+/* Position for Outgoing (Right aligned) -> Star on Left */
+.message.outgoing .message-star {
+    left: -36px;
+    color: rgba(255, 255, 255, 0.5);
+    /* Lighter star for outgoing context */
+}
+
+/* Starred state styling */
+.message-star.starred svg {
+    fill: #ffc107;
+    stroke: #ffc107;
+    filter: drop-shadow(0 0 5px rgba(255, 193, 7, 0.4));
+}
+
+.message-star svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2px;
+}
+
+.message-star:hover {
+    transform: translateY(-50%) scale(1.1);
+    color: #ffc107;
+}
+
+/* Ensure mobile touches work well */
+@media (max-width: 768px) {
+    .message-star {
+        opacity: 0.2;
+        /* Slightly more visible on mobile since no hover */
+    }
 }
 
 .message-time {
