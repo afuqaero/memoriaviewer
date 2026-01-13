@@ -1053,9 +1053,17 @@ class WhatsAppChatViewer {
                 if (textToCheck.length === 0) {
                     showText = false;
                 } else {
-                    // Update the message text to be the cleaned version for display
-                    // This ensures that even if we show text (caption), we don't show the ugly tags
-                    message.displayText = cleanText.trim();
+                    // Fallback: If the text still *looks* like a technical string (e.g. regex failed slightly), hide it
+                    // This catches cases like <attached: ... > (spaces) or unclosed tags
+                    const looksLikeTechnical = /^\s*<attached:|^\s*\(file attached\)$|^\s*[\w-]+\.\w+\s*$/i.test(textToCheck);
+
+                    if (looksLikeTechnical) {
+                        showText = false;
+                    } else {
+                        // Update the message text to be the cleaned version for display
+                        // This ensures that even if we show text (caption), we don't show the ugly tags
+                        message.displayText = cleanText.trim();
+                    }
                 }
             }
         }
