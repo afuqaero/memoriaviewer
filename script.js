@@ -1002,34 +1002,34 @@ class WhatsAppChatViewer {
             div.appendChild(mediaContainer);
         }
 
-        // Text visibility logic
+                // Text visibility logic
         let showText = true;
+        
         if (message.attachment) {
-            // ALWAYS hide text for stickers unless it's explicitly different? 
-            // Usually stickers have no caption in WhatsApp. 
-            // If the text is just the filename or the "attached" marker, hide it.
+            // ALWAYS hide text for stickers unless it's explicitly different
             if (message.attachment.isSticker) {
                 showText = false;
             } else {
                 // For images/videos, check if text is just metadata
-                const text = message.text.trim();
-                const isFilename = text.includes(message.attachment.name);
-                const isAttachedMarker = text.includes('(file attached)') || text.toLowerCase().startsWith('<attached:');
-
-                // If the text is JUST the filename/marker, hide it. 
-                // We want to keep real captions (e.g. "Look at this cat! IMG001.jpg (file attached)")
-                // But usually the export is just "IMG001.jpg (file attached)"
-                if (isFilename || isAttachedMarker) {
-                    // Check if there's other content
-                    const cleanText = text
-                        .replace(message.attachment.name, '')
-                        .replace('(file attached)', '')
-                        .replace(/<attached:.*?>/i, '')
-                        .trim();
-
-                    if (cleanText.length === 0) {
-                        showText = false;
-                    }
+                let textToCheck = message.text.trim();
+                
+                // Remove the filename if present
+                if (message.attachment.name) {
+                    textToCheck = textToCheck.replace(message.attachment.name, '');
+                }
+                
+                // Remove "(file attached)" marker
+                textToCheck = textToCheck.replace(/\(file attached\)/gi, '');
+                
+                // Remove "<attached: ...>" patterns
+                textToCheck = textToCheck.replace(/<attached:.*?>/gi, '');
+                
+                // Cleanup whitespace
+                textToCheck = textToCheck.trim();
+                
+                // If nothing relevant is left, hide the text block
+                if (textToCheck.length === 0) {
+                    showText = false;
                 }
             }
         }
