@@ -651,11 +651,12 @@ body {
 .message-star {
     position: absolute;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(calc(-50% - 8px));
+    /* Shift up 8px to visual center (compensating for bottom timestamp padding) */
     background: none;
     border: none;
-    padding: 8px;
-    /* Hit area */
+    padding: 2px;
+    /* Small padding */
     cursor: pointer;
     color: var(--text-secondary);
     opacity: 0.1;
@@ -675,13 +676,15 @@ body {
 
 /* Position for Incoming (Left aligned) -> Star on Right */
 .message.incoming .message-star {
-    right: -45px;
+    right: -55px;
+    /* Moved further out for bigger star */
     color: var(--text-secondary);
 }
 
 /* Position for Outgoing (Right aligned) -> Star on Left */
 .message.outgoing .message-star {
-    left: -45px;
+    left: -55px;
+    /* Moved further out for bigger star */
     color: rgba(255, 255, 255, 0.5);
     /* Lighter star for outgoing context */
 }
@@ -694,13 +697,15 @@ body {
 }
 
 .message-star svg {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    /* Huge star */
+    height: 32px;
     stroke-width: 2px;
 }
 
 .message-star:hover {
-    transform: translateY(-50%) scale(1.1);
+    transform: translateY(calc(-50% - 8px)) scale(1.1);
+    /* Keep vertical offset on hover */
     color: #ffc107;
 }
 
