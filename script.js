@@ -82,6 +82,17 @@ class WhatsAppChatViewer {
         this.pendingExternalUrl = null;
         this.MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB limit for ZIPs with media
 
+        // Theme switcher
+        this.themeBtn = document.getElementById('theme-btn');
+        this.themes = [
+            { name: 'Coral Gradient', background: "linear-gradient(135deg, #1a1a2e 0%, #2a2547 25%, #1f1f35 50%, #2d1f3d 75%, #1a1a2e 100%)" },
+            { name: 'Purple Blue', background: "linear-gradient(135deg, #7b4b8a 0%, #6a5a99 25%, #5a6a9f 50%, #4f7aa6 75%, #4a85a8 100%)" },
+            { name: 'Deep Ocean', background: "linear-gradient(135deg, #006466 0%, #065A60 20%, #0B525B 40%, #1B3A4B 60%, #272640 80%, #4D194D 100%)" },
+            { name: 'Midnight Sky', background: "linear-gradient(135deg, #001F68 0%, #000C43 25%, #07072D 50%, #140647 75%, #200461 100%)" },
+            { name: 'Violet Night', background: "linear-gradient(135deg, #2D1744 0%, #260063 25%, #12005A 50%, #10044B 75%, #030148 100%)" }
+        ];
+        this.currentThemeIndex = parseInt(localStorage.getItem('chat_theme_index') || '0');
+
         // Initialize
         this.bindEvents();
     }
@@ -169,6 +180,11 @@ class WhatsAppChatViewer {
         this.cancelExternalLinkBtn.addEventListener('click', () => this.closeExternalLinkModal());
         this.continueExternalLinkBtn.addEventListener('click', () => this.proceedToExternalLink());
         this.externalLinkModal.querySelector('.modal-overlay').addEventListener('click', () => this.closeExternalLinkModal());
+
+        // Theme switcher event
+        if (this.themeBtn) {
+            this.themeBtn.addEventListener('click', () => this.cycleTheme());
+        }
     }
 
     scrollToTop() {
@@ -202,6 +218,24 @@ class WhatsAppChatViewer {
             this.scrollBottomBtn.classList.remove('hidden');
         } else {
             this.scrollBottomBtn.classList.add('hidden');
+        }
+    }
+
+    // Theme switching methods
+    cycleTheme() {
+        this.currentThemeIndex = (this.currentThemeIndex + 1) % this.themes.length;
+        localStorage.setItem('chat_theme_index', this.currentThemeIndex.toString());
+        this.applyTheme();
+
+        // Show brief notification of theme change
+        const theme = this.themes[this.currentThemeIndex];
+        this.themeBtn.title = `Theme: ${theme.name} (Click to change)`;
+    }
+
+    applyTheme() {
+        const theme = this.themes[this.currentThemeIndex];
+        if (this.chatMessages) {
+            this.chatMessages.style.background = theme.background;
         }
     }
 
@@ -602,6 +636,9 @@ class WhatsAppChatViewer {
     showChatScreen() {
         this.uploadScreen.classList.add('hidden');
         this.chatScreen.classList.remove('hidden');
+
+        // Apply saved theme
+        this.applyTheme();
 
         // Update header info
         if (this.participants.length >= 2) {

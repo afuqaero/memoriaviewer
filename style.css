@@ -431,8 +431,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* Default background - will be overridden by theme switcher JS */
     background: linear-gradient(180deg, #0f0f1e 0%, #0a0a14 50%, #0d0d1a 100%);
-    background-attachment: fixed;
 }
 
 /* Scroll Navigation Buttons */
