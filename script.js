@@ -283,6 +283,7 @@ class WhatsAppChatViewer {
                             const url = URL.createObjectURL(blob);
                             this.attachments.set(name, {
                                 url: url,
+                                name: name, // Store original filename for text hiding
                                 type: lowerName.endsWith('.mp4') ? 'video' : 'image',
                                 isSticker: lowerName.endsWith('.webp') // Typical for WhatsApp stickers
                             });
