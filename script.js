@@ -1239,166 +1239,288 @@ class WhatsAppChatViewer {
         this.downloadPdfBtn.innerHTML = `<svg class="spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
         this.downloadPdfBtn.disabled = true;
 
-        // Use setTimeout to allow UI to update before heavy processing
-        setTimeout(() => {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4'
-                });
-
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-                const margin = 12;
-                const bubbleWidth = (pageWidth - margin * 2) * 0.7; // 70% width bubbles
-                let yPosition = margin;
-                const lineHeight = 4.5;
-                const bubblePadding = 3;
-                const bubbleMargin = 4;
-
-                // Determine the "self" user (current viewer)
-                const selfUser = this.participants[this.currentViewIndex];
-
-                // Sanitize text for PDF (remove non-ASCII)
-                const sanitize = (text) => {
-                    return text
-                        .replace(/[\u200e\u200f]/g, '')
-                        .replace(/[^\x00-\x7F]/g, '?');
-                };
-
-                // Title
-                doc.setFontSize(16);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(107, 76, 230);
-                doc.text('WhatsApp Chat Export', pageWidth / 2, yPosition, { align: 'center' });
-                yPosition += 7;
-
-                // Subtitle
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(100, 100, 100);
-                doc.text(`${this.messages.length} messages | Exported ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
-                yPosition += 6;
-
-                // Line
-                doc.setDrawColor(200, 200, 200);
-                doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                yPosition += 5;
-
-                let currentDate = null;
-
-                for (const message of this.messages) {
-                    // Estimate bubble height
-                    const textLines = doc.splitTextToSize(sanitize(message.text), bubbleWidth - bubblePadding * 2);
-                    const bubbleHeight = textLines.length * lineHeight + bubblePadding * 2 + 5; // +5 for sender line
-
-                    // Check page overflow
-                    if (yPosition + bubbleHeight > pageHeight - 20) {
-                        doc.addPage();
-                        yPosition = margin;
-                    }
-
-                    // Date separator
-                    if (message.date !== currentDate) {
-                        currentDate = message.date;
-                        yPosition += 3;
-                        doc.setFontSize(8);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(139, 92, 246);
-                        const formattedDate = this.formatDateForSeparator(message.fullDateTime);
-                        doc.text(formattedDate, pageWidth / 2, yPosition, { align: 'center' });
-                        yPosition += 5;
-                    }
-
-                    // System messages
-                    if (message.isSystem) {
-                        doc.setFontSize(7);
-                        doc.setFont('helvetica', 'italic');
-                        doc.setTextColor(150, 150, 150);
-                        const sysLines = doc.splitTextToSize(sanitize(message.text), pageWidth - margin * 4);
-                        doc.text(sysLines, pageWidth / 2, yPosition, { align: 'center' });
-                        yPosition += sysLines.length * 3 + 3;
-                        continue;
-                    }
-
-                    // Determine if this is "self" (right-aligned purple) or "other" (left-aligned gray)
-                    const isSelf = message.sender === selfUser;
-                    const bubbleX = isSelf ? pageWidth - margin - bubbleWidth : margin;
-
-                    // Draw bubble background
-                    if (isSelf) {
-                        // Purple bubble for self
-                        doc.setFillColor(138, 92, 246); // Purple
-                        doc.setTextColor(255, 255, 255); // White text
-                    } else {
-                        // Gray bubble for other
-                        doc.setFillColor(55, 55, 70); // Dark gray
-                        doc.setTextColor(255, 255, 255); // White text
-                    }
-
-                    doc.roundedRect(bubbleX, yPosition, bubbleWidth, bubbleHeight, 3, 3, 'F');
-
-                    // Sender name (smaller, inside bubble)
-                    const textX = bubbleX + bubblePadding;
-                    let textY = yPosition + bubblePadding + 3;
-
-                    doc.setFontSize(7);
-                    doc.setFont('helvetica', 'bold');
-                    if (isSelf) {
-                        doc.setTextColor(220, 200, 255); // Light purple
-                    } else {
-                        doc.setTextColor(150, 220, 180); // Light green for other
-                    }
-                    doc.text(sanitize(message.sender), textX, textY);
-
-                    // Time (right side of bubble)
-                    doc.setFontSize(6);
-                    doc.setTextColor(200, 200, 200);
-                    doc.text(message.time, bubbleX + bubbleWidth - bubblePadding, textY, { align: 'right' });
-
-                    textY += 4;
-
-                    // Message text
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(255, 255, 255); // White
-                    doc.text(textLines, textX, textY);
-
-                    yPosition += bubbleHeight + bubbleMargin;
-                }
-
-                // Checksum
-                if (this.fileChecksum) {
-                    if (yPosition > pageHeight - 25) {
-                        doc.addPage();
-                        yPosition = margin;
-                    }
-                    yPosition += 6;
-                    doc.setDrawColor(200, 200, 200);
-                    doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                    yPosition += 5;
-                    doc.setFontSize(7);
-                    doc.setTextColor(100, 100, 100);
-                    doc.text('SHA-256: ' + this.fileChecksum, margin, yPosition);
-                }
-
-                // Save
-                const chatName = this.chatName.textContent || 'WhatsApp_Chat';
-                const dateStr = new Date().toISOString().split('T')[0];
-                const filename = `${chatName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
-                doc.save(filename);
-
-            } catch (err) {
-                console.error('PDF generation failed:', err);
-                alert('PDF generation failed. Try exporting as text instead.');
-            }
-
-            // Reset button
+        // Use async function for emoji loading
+        this.generatePDFWithEmoji().then(() => {
             this.downloadPdfBtn.innerHTML = originalBtnContent;
             this.downloadPdfBtn.disabled = false;
-        }, 100);
+        }).catch(err => {
+            console.error('PDF generation failed:', err);
+            alert('PDF generation failed. Try exporting as text instead.');
+            this.downloadPdfBtn.innerHTML = originalBtnContent;
+            this.downloadPdfBtn.disabled = false;
+        });
+    }
+
+    // Convert emoji to Twemoji CDN URL (using GitHub assets path)
+    emojiToTwemojiUrl(emoji) {
+        const codePoints = [...emoji]
+            .map(char => char.codePointAt(0).toString(16))
+            .filter(cp => cp !== 'fe0f') // Remove variation selector
+            .join('-');
+        return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${codePoints}.png`;
+    }
+
+    // Load image as base64 for jsPDF
+    async loadImageAsBase64(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return null;
+            const blob = await response.blob();
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(blob);
+            });
+        } catch {
+            return null;
+        }
+    }
+
+    // Extract emojis from text
+    extractEmojis(text) {
+        const emojiRegex = /(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Component})/gu;
+        const matches = text.match(emojiRegex) || [];
+        return [...new Set(matches)]; // Unique emojis only
+    }
+
+    // Preload all emojis used in messages
+    async preloadEmojis() {
+        const allText = this.messages.map(m => m.text).join(' ');
+        const emojis = this.extractEmojis(allText);
+
+        const emojiCache = {};
+        const loadPromises = emojis.map(async (emoji) => {
+            const url = this.emojiToTwemojiUrl(emoji);
+            const base64 = await this.loadImageAsBase64(url);
+            if (base64) {
+                emojiCache[emoji] = base64;
+            }
+        });
+
+        await Promise.all(loadPromises);
+        return emojiCache;
+    }
+
+    async generatePDFWithEmoji() {
+        // Preload all emoji images
+        const emojiCache = await this.preloadEmojis();
+        const hasEmojis = Object.keys(emojiCache).length > 0;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 12;
+        const bubbleWidth = (pageWidth - margin * 2) * 0.7;
+        let yPosition = margin;
+        const lineHeight = 4.5;
+        const bubblePadding = 3;
+        const bubbleMargin = 4;
+        const emojiSize = 4; // mm
+
+        const selfUser = this.participants[this.currentViewIndex];
+
+        // Sanitize text for PDF (keep emojis as placeholders)
+        const sanitizeText = (text) => {
+            return text
+                .replace(/[\u200e\u200f]/g, '')
+                .replace(/[^\x00-\x7F\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu, '');
+        };
+
+        // Render text with inline emojis
+        const renderTextWithEmoji = (text, x, y, maxWidth, fontSize) => {
+            doc.setFontSize(fontSize);
+            const emojiRegex = /(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?)/gu;
+
+            // Split text into segments (text and emoji alternating)
+            const segments = [];
+            let lastIndex = 0;
+            let match;
+
+            while ((match = emojiRegex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+                }
+                segments.push({ type: 'emoji', content: match[0] });
+                lastIndex = match.index + match[0].length;
+            }
+            if (lastIndex < text.length) {
+                segments.push({ type: 'text', content: text.slice(lastIndex) });
+            }
+
+            let currentX = x;
+            let currentY = y;
+            const charWidth = fontSize * 0.35; // Approximate char width in mm
+            const lineHeightMm = fontSize * 0.4;
+
+            for (const segment of segments) {
+                if (segment.type === 'text') {
+                    // Clean non-ASCII from text portions
+                    const cleanText = segment.content.replace(/[^\x00-\x7F]/g, '');
+                    if (cleanText) {
+                        // Check if we need to wrap
+                        const textWidth = doc.getTextWidth(cleanText);
+                        if (currentX + textWidth > x + maxWidth) {
+                            currentX = x;
+                            currentY += lineHeightMm;
+                        }
+                        doc.text(cleanText, currentX, currentY);
+                        currentX += textWidth;
+                    }
+                } else if (segment.type === 'emoji') {
+                    const emojiData = emojiCache[segment.content];
+                    if (emojiData) {
+                        // Check if we need to wrap
+                        if (currentX + emojiSize > x + maxWidth) {
+                            currentX = x;
+                            currentY += lineHeightMm;
+                        }
+                        try {
+                            doc.addImage(emojiData, 'PNG', currentX, currentY - emojiSize * 0.8, emojiSize, emojiSize);
+                            currentX += emojiSize + 0.5;
+                        } catch (e) {
+                            // If emoji fails, show placeholder
+                            doc.text('?', currentX, currentY);
+                            currentX += charWidth;
+                        }
+                    } else {
+                        // Fallback to ? if emoji not in cache
+                        doc.text('?', currentX, currentY);
+                        currentX += charWidth;
+                    }
+                }
+            }
+
+            return currentY; // Return final Y position
+        };
+
+        // Title
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(107, 76, 230);
+        doc.text('WhatsApp Chat Export', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 7;
+
+        // Subtitle with emoji count
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        const emojiCountText = hasEmojis ? ` | ${Object.keys(emojiCache).length} emojis` : '';
+        doc.text(`${this.messages.length} messages${emojiCountText} | Exported ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 6;
+
+        // Line
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 5;
+
+        let currentDate = null;
+
+        for (const message of this.messages) {
+            // Estimate bubble height (add extra for potential emoji lines)
+            const textForEstimate = message.text.replace(/[^\x00-\x7F]/g, '?');
+            const textLines = doc.splitTextToSize(textForEstimate, bubbleWidth - bubblePadding * 2);
+            const bubbleHeight = textLines.length * lineHeight + bubblePadding * 2 + 8;
+
+            // Check page overflow
+            if (yPosition + bubbleHeight > pageHeight - 20) {
+                doc.addPage();
+                yPosition = margin;
+            }
+
+            // Date separator
+            if (message.date !== currentDate) {
+                currentDate = message.date;
+                yPosition += 3;
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(139, 92, 246);
+                const formattedDate = this.formatDateForSeparator(message.fullDateTime);
+                doc.text(formattedDate, pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += 5;
+            }
+
+            // System messages
+            if (message.isSystem) {
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(150, 150, 150);
+                const sysText = message.text.replace(/[^\x00-\x7F]/g, '?');
+                const sysLines = doc.splitTextToSize(sysText, pageWidth - margin * 4);
+                doc.text(sysLines, pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += sysLines.length * 3 + 3;
+                continue;
+            }
+
+            // Determine if this is "self" or "other"
+            const isSelf = message.sender === selfUser;
+            const bubbleX = isSelf ? pageWidth - margin - bubbleWidth : margin;
+
+            // Draw bubble background
+            if (isSelf) {
+                doc.setFillColor(138, 92, 246);
+            } else {
+                doc.setFillColor(55, 55, 70);
+            }
+
+            doc.roundedRect(bubbleX, yPosition, bubbleWidth, bubbleHeight, 3, 3, 'F');
+
+            // Sender name
+            const textX = bubbleX + bubblePadding;
+            let textY = yPosition + bubblePadding + 3;
+
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            if (isSelf) {
+                doc.setTextColor(220, 200, 255);
+            } else {
+                doc.setTextColor(150, 220, 180);
+            }
+            const senderText = message.sender.replace(/[^\x00-\x7F]/g, '');
+            doc.text(senderText, textX, textY);
+
+            // Time
+            doc.setFontSize(6);
+            doc.setTextColor(200, 200, 200);
+            doc.text(message.time, bubbleX + bubbleWidth - bubblePadding, textY, { align: 'right' });
+
+            textY += 4;
+
+            // Message text with emojis
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(255, 255, 255);
+            renderTextWithEmoji(message.text, textX, textY, bubbleWidth - bubblePadding * 2, 9);
+
+            yPosition += bubbleHeight + bubbleMargin;
+        }
+
+        // Checksum
+        if (this.fileChecksum) {
+            if (yPosition > pageHeight - 25) {
+                doc.addPage();
+                yPosition = margin;
+            }
+            yPosition += 6;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, yPosition, pageWidth - margin, yPosition);
+            yPosition += 5;
+            doc.setFontSize(7);
+            doc.setTextColor(100, 100, 100);
+            doc.text('SHA-256: ' + this.fileChecksum, margin, yPosition);
+        }
+
+        // Save
+        const chatName = this.chatName.textContent || 'WhatsApp_Chat';
+        const dateStr = new Date().toISOString().split('T')[0];
+        const filename = `${chatName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
+        doc.save(filename);
     }
 
     // ========================================
